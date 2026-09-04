@@ -32,7 +32,7 @@ function Hf = hullForces(u, v, r, P, H)
 % and a hard turn lives in the quadratic one.
 
 E = P.E;  V = P.V;
-if nargin < 5 || isempty(H), H = hullSteadyState(u, P); end
+if nargin < 5 || isempty(H), H = hullSteadyState(u, P, 'lite'); end
 
 U = max(abs(u), 0.05);                    % [m/s] guard against divide-by-zero
 

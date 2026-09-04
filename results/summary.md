@@ -184,6 +184,110 @@ Achieved step response: **overshoot flat at −3% and t90 ≈ 2.0–2.5 s from 4
 
 ---
 
+## 4b. Monte Carlo robustness — the design does NOT close at 95%
+
+120 Latin-hypercube draws over all 15 declared uncertainties, **one fixed gain
+set** (designed at nominal), two-leg 213 m course, 15 kt crosswind and 0.5 m/s
+opposing current. Spec: straight-leg cross-track ≤ 5 m.
+
+Corner overshoot is scored separately from straight-leg error throughout,
+because a boat with a 20 m turn radius physically cannot hold 5 m through a 39°
+corner — that overshoot is set by turn geometry, and no gain change touches it.
+
+### Rudder size matters, and the as-built blade is the bottleneck
+
+Same 120 draws, same gains, three rudders:
+
+| rudder | pass @5 m | unstable | median err | p90 | **saturated** |
+|---|---|---|---|---|---|
+| as-built 75 mm | 33% | 10% | 9.40 m | 44.3 m | **55% of run** |
+| recommended 150 mm | 52% | 8% | 3.82 m | 30.0 m | 12% |
+| oversize 220 mm | 59% | 8% | 2.64 m | 27.3 m | 7% |
+
+**The as-built rudder sits on its useful limit for 55% of the run.** That is the
+signature of an authority limit, not a tuning problem, and it independently
+confirms the §2 sizing conclusion from a completely different direction.
+
+### But retuning does not rescue the tail
+
+Inner-loop bandwidth swept over its entire admissible range (the delay ceiling
+is 5.94 rad/s), recommended rudder, 100 draws each:
+
+| wc_r [rad/s] | pass | median | high-Nr subset pass |
+|---|---|---|---|
+| 2.5 | 50% | 4.45 m | 26% |
+| **4.0** | **55%** | **3.50 m** | **34%** |
+| 5.9 | 52% | 3.58 m | 28% |
+
+The nominal 4.0 rad/s is already at the optimum, and nothing in the admissible
+range gets near 95%.
+
+**This contradicts the brief's premise.** The brief states: *"If <95% pass, the
+gains are wrong, not the boat."* With the rudder non-saturating (7%) and
+bandwidth swept end to end, pass rate plateaus at ~59%. The gains are not what
+is wrong. **The uncertainty is too wide for any fixed gain set to be validated
+against a 5 m spec.**
+
+### What drives failure
+
+Spearman rank correlation with cross-track error (recommended rudder):
+
+| parameter | ρ |
+|---|---|
+| **Nr_fac** (yaw damping) | **+0.440** |
+| delta_vent_on | −0.353 |
+| Nv_fac | −0.284 |
+| Yv_fac | −0.261 |
+| CLa_fac | −0.218 |
+
+The dominant driver's sign is **positive**: *more* yaw damping makes tracking
+*worse*, because a stiffer boat needs more rudder moment than the blade can
+produce. Below-median Nr → 73% pass, 1.41 m median. Above-median Nr → 32% pass,
+8.53 m.
+
+### Narrowing one parameter is not enough either
+
+Pass rate conditioned on how well yaw damping is known, everything else still at
+full range:
+
+| Nr known to | pass | median |
+|---|---|---|
+| ±5× (current) | 52% | 4.11 m |
+| ±2× | 65% | 3.25 m |
+| ±1.25× | 63% | 2.00 m |
+
+It plateaus around 65%. Adding a second condition (ventilation onset ≥ 9°)
+reaches 74%. **No single measurement closes the design; the residual comes from
+the other thirteen uncertainties collectively.**
+
+### The 8–10% that go unstable
+
+These are not numerical artifacts. The unstable population has a clear
+signature: **high yaw damping (Nr 2.32 vs 1.04), low directional stability
+(Nv 0.32 vs 1.05), and weak rudder lift (CLa 0.58 vs 0.78)**, with minimum speed
+going *negative* (−1.41 m/s). The mechanism is a spin-out: weak directional
+stability lets sideslip build, the destabilising Munk moment takes over, and the
+rudder cannot arrest it.
+
+**Because 8–10% diverge, no finite cross-track spec is met by 95% of draws for
+any rudder size tested.** The p95 is infinite until that population is
+eliminated.
+
+### What this means for the project
+
+The honest conclusion is that **the design cannot be validated by simulation at
+the current level of ignorance**, and that is a statement about the available
+data, not about the boat. Three actions follow, in order:
+
+1. **Fit a larger rudder** (§2). This is unambiguous — it cuts median error from
+   9.4 m to 3.8 m and takes saturation from 55% to 12%.
+2. **Measure the derivatives** (§7). The on-water programme is not polish; it is
+   the critical path. Simulation cannot substitute for it here.
+3. **Do not chase gains.** They are already at the optimum of their admissible
+   range, and the remaining error is not theirs.
+
+---
+
 ## 5. Validity limits — where this model stops being usable
 
 **Cavitation.** σ falls below 0.5 at **19.8 m/s (44 mph)** and reaches 0.154 at

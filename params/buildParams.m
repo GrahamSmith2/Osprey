@@ -79,4 +79,14 @@ end
 P.R.c       = P.R.A_r / P.R.h_sub;
 P.R.AR_geom = P.R.h_sub / P.R.c;
 
+%% ---- Precompute the hull table ----------------------------------------
+% hullSteadyState is the hottest path in the simulation and every quantity it
+% returns is a smooth function of |u| for a fixed parameter set. Tabulate once
+% here so the RK4 inner loop interpolates instead of re-solving two nested
+% bisections four times per step. Costs ~0.2 s per parameter build, saves
+% roughly 15x on every simulation run.
+if ~isfield(overrides, 'no_table') || ~overrides.no_table
+    P.HT = buildHullTable(P);
+end
+
 end

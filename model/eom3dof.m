@@ -97,7 +97,7 @@ u_w = u - Vc_body(1);                                       % water-relative sur
 v_w = v - Vc_body(2);                                       % water-relative sway
 
 %% ---- 1. Force contributions -------------------------------------------
-H  = hullSteadyState(u_w, P);
+H  = hullSteadyState(u_w, P, 'lite');   % dynamics only need SW and R_total
 Hf = hullForces(u_w, v_w, r, P, H);                         % hull
 Rf = rudderForces(delta_blade, u_w, v_w, r, vent_state, P); % rudder (blade angle)
 Pf = propForces(T_p, T_s, u_w, P);                          % props

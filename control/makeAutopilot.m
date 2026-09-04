@@ -42,6 +42,22 @@ cfg = fill(cfg, 'U_fix',      6.7);          % 15 mph, the brief's tuning point
 cfg = fill(cfg, 'clamp_vent', true);
 cfg = fill(cfg, 'seed',       1);
 cfg = fill(cfg, 'wc_r',       4.0);
+% LOS lookahead. Empty (default) means SPEED-ADAPTIVE, which is the physically
+% correct scaling and not a boat-length rule of thumb.
+%
+% The guidance asks for a heading change and the boat needs ~t90 (about 2 s) to
+% deliver it. If the lookahead point sits closer than U*t90 the guidance is
+% demanding heading faster than the loop can produce, and the boat weaves about
+% the line instead of settling on it -- burning rudder authority it does not
+% have. Measured, nominal plant with 15 kt crosswind:
+%
+%   L_a = 6.4 m (3 LOA)  -> leg error 1.79 m, rudder 8.00 deg RMS (at the clamp)
+%   L_a = 20 m  (9 LOA)  -> leg error 0.80 m, rudder 3.82 deg RMS
+%   L_a = 32 m  (15 LOA) -> leg error 0.65 m, rudder 3.32 deg RMS
+%
+% Returns diminish past ~3*U, and a longer lookahead cuts corners harder, so
+% the default is L_a = 3*U floored at 2 boat lengths for the low-speed case.
+cfg = fill(cfg, 'L_a',        []);
 
 Sn = params_sensors();
 dt_c = 1/Sn.f_ctrl;
@@ -61,10 +77,22 @@ fh = @autopilotStep;
             mem.I_r     = 0;      % yaw-rate integrator     [rad]
             mem.psi_m_prev = 0;   % for derivative-on-measurement
             mem.delta_prev = 0;
-            mem.gi      = struct('crab_valid', false, 'crab', 0);
+            mem.gi      = struct('crab_valid', false, 'crab', 0, 'L_a', cfg.L_a);
             mem.I_u     = 0;      % speed integrator
-            mem.log     = struct('t',{},'e_cross',{},'psi_cmd',{},'r_cmd',{}, ...
-                                 'N_cmd',{},'sat',{},'U_sched',{});
+            % Telemetry as PREALLOCATED COLUMNS, not a growing struct array.
+            % Growing a struct array element by element reallocates the whole
+            % thing every tick -- O(n^2) -- and it was a measurable fraction of
+            % the run time before the Monte Carlo made it matter.
+            % 20,000 ticks at 50 Hz = 400 s of run time, more than any run here
+            % needs, and only ~1.6 MB. Sizing this at 200k would cost 16 MB that
+            % gets carried through the controller memory on every single tick.
+            nmax = 20000;
+            mem.n_log = 0;
+            mem.log = struct('t',zeros(nmax,1), 'e_cross',zeros(nmax,1), ...
+                             'psi_cmd',zeros(nmax,1), 'r_cmd',zeros(nmax,1), ...
+                             'N_cmd',zeros(nmax,1), 'sat',false(nmax,1), ...
+                             'U_sched',zeros(nmax,1), 'Kp_N',zeros(nmax,1), ...
+                             'r_lim',zeros(nmax,1), 'I_r',zeros(nmax,1));
             mem.init    = true;
         end
 
@@ -82,6 +110,11 @@ fh = @autopilotStep;
         %% ---- 3. Guidance --------------------------------------------
         mem.gi.crab       = meas.crab;
         mem.gi.crab_valid = meas.cog_valid;
+        if isempty(cfg.L_a)
+            mem.gi.L_a = max(3 * U_sched, 2 * P.V.LOA);   % speed-adaptive
+        else
+            mem.gi.L_a = cfg.L_a;
+        end
         if isempty(cfg.wpts)
             psi_cmd = cfg.psi_ref;
             e_cross = 0;
@@ -162,17 +195,19 @@ fh = @autopilotStep;
                       'T_cmd_stbd', A.T_stbd);
 
         %% ---- 9. Telemetry -------------------------------------------
-        n = numel(mem.log) + 1;
-        mem.log(n).t        = t;
-        mem.log(n).e_cross  = e_cross;
-        mem.log(n).psi_cmd  = psi_cmd;
-        mem.log(n).r_cmd    = r_cmd;
-        mem.log(n).N_cmd    = N_cmd;
-        mem.log(n).sat      = A.saturated;
-        mem.log(n).U_sched  = U_sched;
-        mem.log(n).Kp_r     = G.Kp_r;
-        mem.log(n).r_lim    = r_lim;
-        mem.log(n).I_r      = mem.I_r;
+        n = mem.n_log + 1;  mem.n_log = n;
+        if n <= numel(mem.log.t)
+            mem.log.t(n)       = t;
+            mem.log.e_cross(n) = e_cross;
+            mem.log.psi_cmd(n) = psi_cmd;
+            mem.log.r_cmd(n)   = r_cmd;
+            mem.log.N_cmd(n)   = N_cmd;
+            mem.log.sat(n)     = A.saturated;
+            mem.log.U_sched(n) = U_sched;
+            mem.log.Kp_N(n)    = G.Kp_N;
+            mem.log.r_lim(n)   = r_lim;
+            mem.log.I_r(n)     = mem.I_r;
+        end
     end
 end
 

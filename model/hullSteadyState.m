@@ -1,7 +1,8 @@
-function H = hullSteadyState(u, P)
+function H = hullSteadyState(u, P, mode)
 % HULLSTEADYSTATE  Wetted area, lift split and resistance vs forward speed.
 %
-%   H = hullSteadyState(u, P)   u may be scalar or vector [m/s]
+%   H = hullSteadyState(u, P)           u may be scalar or vector [m/s]
+%   H = hullSteadyState(u, P, 'lite')   only the fields the dynamics consume
 %
 % WHY THIS FILE EXISTS
 % The manoeuvring derivatives Yv, Nr, ... are not constants: they scale with the
@@ -35,6 +36,19 @@ V = P.V;  E = P.E;
 % area. The DIRECTION of the resistance force is applied by the caller
 % (hullForces), which knows the sign of the water-relative velocity.
 u = abs(u(:).');                  % row, so all outputs are rows
+
+% FAST PATH. If buildParams attached a precomputed table, interpolate instead of
+% re-running the nested bisections. Everything returned here is a smooth
+% function of |u| for a fixed parameter set, so this is an interpolation of the
+% same function, not a different model. See model/buildHullTable.m.
+% mode 'lite' returns only what the DYNAMICS consume (SW, R_total, and the
+% scalars) -- the inner loop does not look at trim, Froude number or the drag
+% breakdown, and building those extra fields 20,000 times a run is pure cost.
+if nargin < 3, mode = 'full'; end
+if isfield(P, 'HT') && ~isempty(P.HT)
+    H = interpHullTable(P.HT, u, mode);
+    return
+end
 W = P.m * E.g;                    % [N] weight
 
 %% ---- 1. Tunnel aerodynamic lift ---------------------------------------
@@ -189,6 +203,39 @@ H.Fn           = Fn;
 end
 
 % =========================================================================
+function H = interpHullTable(HT, u, mode)
+% INTERPHULLTABLE  Linear interpolation of the precomputed hull table.
+% Hand-rolled rather than interp1 because this is the hottest path in the whole
+% simulation and interp1's input validation dominates for scalar queries.
+uq = min(max(u, 0), HT.umax);
+idx = floor(uq / HT.du) + 1;
+idx = min(idx, numel(HT.u) - 1);
+w = (uq - HT.u(idx)) / HT.du;                 % fractional position in the cell
+w1 = 1 - w;
+
+% Always: the two fields the dynamics actually read (hullForces uses SW,
+% SW_disp, R_total and T_draft, and nothing else).
+H.SW      = HT.SW(idx)      .* w1 + HT.SW(idx+1)      .* w;
+H.R_total = HT.R_total(idx) .* w1 + HT.R_total(idx+1) .* w;
+H.u       = u;
+H.SW_disp = HT.SW_disp;
+H.T_draft = HT.T_draft;
+
+if strcmp(mode, 'lite'), return, end
+
+f = {'L_aero','f_aero','lambda','tau_run_deg','regime','Fn', ...
+     'R_fric','R_induced','R_wave','D_aero','L_hydro'};
+for k = 1:numel(f)
+    v = HT.(f{k});
+    H.(f{k}) = v(idx) .* w1 + v(idx+1) .* w;
+end
+H.CL_alpha_tunnel = HT.CL_alpha_tunnel;
+H.lambda_max   = HT.lambda_max;
+H.U_transition = HT.U_transition;
+H.SW_plane     = H.SW;
+end
+
+% -------------------------------------------------------------------------
 function CL0 = invertDeadrise(CLb, beta_deg)
 % INVERTDEADRISE  Solve CLb = CL0 - 0.0065*beta*CL0^0.60 for CL0.
 % Monotonic increasing in CL0 over the physical range, so bisection is safe.

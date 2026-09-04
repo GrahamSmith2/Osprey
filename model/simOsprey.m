@@ -89,8 +89,10 @@ for it = 1:n_tick
             delta_blade = x(9);
         end
 
-        % --- Log at the start of the step
-        [~, D] = eom3dof(t, x, ctrl_now, vent, P, delta_blade);
+        % --- Log at the start of the step. This SAME evaluation is RK4 stage 1,
+        % so it is captured once and reused below rather than recomputed --
+        % the arguments are identical and it was ~20% of the run time.
+        [f1, D] = eom3dof(t, x, ctrl_now, vent, P, delta_blade);
         S.x(k,:)          = x.';
         S.delta_cmd(k)    = ctrl_now.delta_cmd;
         S.delta_blade(k)  = delta_blade;
@@ -105,8 +107,8 @@ for it = 1:n_tick
         S.sigma(k)        = D.sigma;
         S.T_max(k)        = D.T_max;
 
-        % --- RK4, ventilation latch frozen across all four stages
-        f1 = eom3dof(t,        x,             ctrl_now, vent, P, delta_blade);
+        % --- RK4, ventilation latch frozen across all four stages.
+        % f1 came from the logging evaluation above.
         f2 = eom3dof(t+dt/2,   x+dt/2*f1,     ctrl_now, vent, P, delta_blade);
         f3 = eom3dof(t+dt/2,   x+dt/2*f2,     ctrl_now, vent, P, delta_blade);
         f4 = eom3dof(t+dt,     x+dt*f3,       ctrl_now, vent, P, delta_blade);
