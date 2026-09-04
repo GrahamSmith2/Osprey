@@ -23,6 +23,16 @@ V.a_hydro      = deg2rad(1.45);  % [rad] step angle
 V.a_trim       = deg2rad(1.5);   % [rad] design running trim
 V.a_aero       = deg2rad(1.8);   % [rad] tunnel angle of attack
 
+% CG height above the planing surface. NOT SUPPLIED -- VERIFY from CAD.
+% This is the lever that converts a turn's lateral acceleration into roll load
+% transfer, so it sets the whole blow-over / sponson-unloading envelope.
+V.h_cg         = 0.12;       % [m] PLACEHOLDER -- FILL. See ASSUMPTIONS.md #A14.
+
+% Lateral offset from centreline to each sponson's planing pad centre.
+% = half tunnel width + half pad width. Independently equals prop_sep/2, which
+% is a useful consistency check on the CAD numbers.
+V.y_hull       = 0.457/2 + 0.141/2;   % [m] = 0.299
+
 % Lateral area seen by a crosswind (tunnel side + deck + canopy).
 % VERIFY from CAD -- this drives the wind disturbance magnitude directly.
 V.A_lateral    = 0.30;       % [m^2] projected lateral area above waterline

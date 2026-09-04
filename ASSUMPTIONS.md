@@ -207,6 +207,85 @@ schedule is valid.
 
 ---
 
+### A14 — CG height above the planing surface assumed at 0.12 m
+**Assumption.** `h_cg = 0.12 m`. **Not supplied — VERIFY from CAD.**
+**Why.** It is the lever converting turn lateral acceleration into roll load
+transfer, so it alone sets the sponson-unloading limit
+`a_y_crit = g·y_hull/h_cg = 2.49 g`.
+**Error direction.** If the real CG sits higher (batteries on deck rather than
+in the sponsons), `a_y_crit` falls proportionally and the envelope tightens.
+**Handling.** Currently non-binding by a wide margin — the boat reaches only
+15–36% of `r_max_safe` at full rudder — so `h_cg` would have to be wrong by
+roughly 3× before it changed any conclusion.
+
+---
+
+### A15 — Hooking threshold set at 12° sideslip
+**Assumption.** The outer sponson trips at β > 12°.
+**Why.** There is no usable theory for sponson tripping at Fn 2.9–7.8. This is
+a judgement call from planing-craft practice, not a derived quantity.
+**Error direction.** Unknown. It binds only below ~7 m/s, where the roll limit
+is looser.
+**Handling.** Flagged. It is the weakest number in `rollEnvelope.m`.
+
+---
+
+### A16 — Derivative on heading is unusable; damping must come from the inner loop
+**Finding, recorded as a design constraint.** Placing a useful lead zero at
+`wc_psi/3` in the outer heading loop needs `Kd_psi ≈ 3`. The fused IMU/mag
+heading carries 1.5° of noise; differentiated at the 50 Hz loop rate that is
+**1.85 rad/s of noise**, so `Kd_psi = 3` would inject **5.6 rad/s of command
+noise against a useful `r_cmd` of ~0.5 rad/s**.
+
+`Kd_psi` is therefore set to **zero**, and all loop damping comes from the inner
+rate loop closing on the IMU gyro (0.004 rad/s noise — **463× cleaner**).
+This is the concrete justification for the cascade architecture over a
+single-loop heading PID.
+
+Separately, the textbook integral corner at `wc/10` proved too fast: it produced
+a lightly damped ~20 s mode (30° step overshooting to 41° and ringing for half a
+minute), because during the step the **Munk moment reaches 135% of the rudder
+moment** and acts as negative damping. Backing the corner off to `wc/30` fixed
+it. The plant is not the clean Nomoto model the gains were derived from.
+
+---
+
+### A17 — The gain schedule matters far less than expected, and the reason matters
+**Finding.** With the moment-domain cascade implemented here, the inner
+proportional gain `Kp_N` is **speed-invariant** (verified: 80.28 N·m/(rad/s) at
+every speed). All the `u²` speed dependence is absorbed by the allocator's
+`N → δ` conversion, which uses measured speed.
+
+Consequences, in order of importance:
+
+1. **The `1/U` law in the brief is right for a single-loop heading→rudder PID**
+   (`Kp = wc/K ∝ 1/U`, `Td = T ∝ 1/U`, both verified). It is **not** the law for
+   this cascade, where the angle-domain gain goes as `1/U²` and the
+   moment-domain gain is flat. Both results are correct; they belong to
+   different loop structures.
+2. **The allocator's `N → δ` conversion IS gain scheduling**, just relocated out
+   of the gain table. An autopilot that commands a steering angle directly
+   (ArduPilot Rover) does not do this, so for that target the `1/U²`
+   angle-domain schedule is genuinely required.
+3. **The expected "fixed gains fail at one end" result is muted**, and honestly
+   so. Small-signal 5° step, fixed gains frozen at 15 mph:
+
+   | U | scheduled overshoot | fixed overshoot |
+   |---|---|---|
+   | 2.2 m/s (5 mph) | 10.4% | **34.6%** |
+   | 6.7 m/s (15 mph) | 10.9% | 10.9% |
+   | 13.4 m/s (30 mph) | 11.7% | 11.0% |
+
+   Fixed gains degrade 3× at the **low** end and are fine at the high end — and
+   they never go unstable. The reason is the differential-thrust allocator:
+   its authority has **no `u²` dependence**, so it props up the low-speed end
+   that would otherwise be gain-starved. A rudder-only boat would fail here.
+4. **Large steps hide all of this.** A 30° step saturates the rudder at the
+   ventilation clamp, so the response is authority-limited and gain barely
+   matters. Any gain comparison must be run small-signal or it measures nothing.
+
+---
+
 ## Assumptions ranked by impact on the rudder-sizing conclusion
 
 *Placeholder ordering, from the sensitivity runs completed so far. To be
