@@ -288,6 +288,83 @@ data, not about the boat. Three actions follow, in order:
 
 ---
 
+## 4c. Failure modes
+
+Recommended 150 mm rudder, 15 kt crosswind and 0.5 m/s current, fault injected
+at t = 7 s mid-way along the first straight leg (with the boat settled and
+tracking). Plant faults are injected in the plant and the controller is **not**
+told — it sees only what the sensors report.
+
+| fault | max cross-track after | heading drift in 5 s | finishes | recovers |
+|---|---|---|---|---|
+| baseline (no fault) | 3.58 m | 1.7° | yes | yes |
+| **rudder jam @ 10°** | **53.5 m** | **70.7°** | **no** | **no** |
+| port motor out | 14.2 m | 3.6° | yes | no |
+| GPS dropout 5 s | 2.42 m | 2.9° | yes | yes |
+| ventilation latched | 4.03 m | 1.7° | yes | yes |
+
+### Three of the four faults are survivable
+
+**GPS dropout (2.42 m)** is almost a non-event. The IMU is unaffected, so
+heading hold continues and the boat dead-reckons straight down a straight leg.
+The exposure would be a dropout *during a turn*, which this scenario does not
+cover.
+
+**Latched ventilation (4.03 m vs 3.58 m baseline)** barely registers, and that
+is a direct payoff from clamping commanded deflection at ventilation onset.
+The controller normally uses only ~3° of rudder, so a 50% authority loss simply
+means it uses ~6° — still inside the clamp. Had the allocator been free to use
+the full 35°, this fault would have landed the loop on the wrong side of the
+non-monotonic authority curve.
+
+**One motor out** holds heading well (3.6° drift) — the rudder trims out the
+asymmetric thrust — but leaves a standing cross-track bias and the boat runs
+1 m/s slower. Course completion is not threatened.
+
+### The rudder jam is not survivable at speed — and the fix is to slow down
+
+At 8 m/s the boat is lost: 53 m off track, 70° of heading departure, does not
+finish. Fault detection does **not** help, and the reason is instructive — the
+allocator was *already* commanding maximum differential thrust, because the
+growing rate error overflows past the rudder automatically. There was nothing
+left to reallocate.
+
+The moment balance explains it. A jammed rudder's moment grows as `u²`;
+differential thrust is nearly speed-independent:
+
+| u [m/s] | jammed rudder @10° | differential thrust max | margin |
+|---|---|---|---|
+| 3 | 9.0 N·m | 79.0 N·m | +70.0 |
+| 5 | 25.0 N·m | 74.7 N·m | +49.7 |
+| **6.8** | — | — | **1.5× margin crossover** |
+| 8 | 63.9 N·m | 68.2 N·m | +4.3 |
+| 10 | 99.9 N·m | 63.9 N·m | **−36.0** |
+
+At 8 m/s thrust exceeds the jam by only 7%, which is not enough to control with;
+by 10 m/s it loses outright. Simulation confirms the predicted crossover:
+
+| commanded speed | max cross-track after jam | verdict |
+|---|---|---|
+| 8 m/s | 104.3 m | **lost** |
+| 6 m/s | 14.3 m | recovers |
+| 5 m/s | 1.7 m | recovers |
+| 4 m/s | 0.9 m | recovers |
+| 3 m/s | 1.0 m | recovers |
+
+**Recommended failure response: on loss of steering authority, command speed
+down to ≤ 5 m/s.** Slowing is not merely prudent, it is the only lever that
+shifts authority back toward the working actuator — because the failed one
+scales with `u²` and the healthy one does not.
+
+Two implementation notes:
+1. This needs **fault detection** to trigger it — persistent yaw-rate error with
+   an unsaturated rudder command is the natural detector. The allocator cannot
+   discover a jam on its own, because a jammed rudder never reports saturation.
+2. The autopilot must be able to command speed down independently of the
+   mission, i.e. a steering-fault response mode.
+
+---
+
 ## 5. Validity limits — where this model stops being usable
 
 **Cavitation.** σ falls below 0.5 at **19.8 m/s (44 mph)** and reaches 0.154 at

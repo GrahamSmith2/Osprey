@@ -59,16 +59,26 @@ alpha  = delta + beta_r;                                    % [rad] effective Ao
 a_on  = R.delta_vent_on;
 a_off = max(R.delta_vent_on - R.vent_hysteresis, deg2rad(1));
 
-vent_new = vent_state;
-if abs(alpha) > a_on,  vent_new = 1; end
-if abs(alpha) < a_off, vent_new = 0; end
-
-% Blend rather than step, so the state derivative stays integrable. The latch
-% above decides WHICH curve we are on; this decides how sharply we are on it.
-if vent_new
-    w = smoothsat((abs(alpha) - a_off) / R.vent_blend);
+% vent_state == 2 is a FORCED ventilation fault (injected by simOsprey). It
+% bypasses the latch entirely and applies the full lift loss regardless of
+% deflection. Without this sentinel a forced fault cures itself instantly: the
+% re-wetting test below would clear the latch on the very next evaluation,
+% because the controller keeps deflection under the onset angle by design.
+if vent_state == 2
+    Rf_forced = true;  vent_new = 2;  w = 1;
 else
-    w = 0;
+    Rf_forced = false;
+    vent_new = vent_state;
+    if abs(alpha) > a_on,  vent_new = 1; end
+    if abs(alpha) < a_off, vent_new = 0; end
+
+    % Blend rather than step, so the state derivative stays integrable. The
+    % latch decides WHICH curve we are on; this decides how sharply.
+    if vent_new
+        w = smoothsat((abs(alpha) - a_off) / R.vent_blend);
+    else
+        w = 0;
+    end
 end
 k_vent = 1 - w * (1 - R.k_vent_loss);                       % [-] 1 -> k_vent_loss
 
@@ -121,7 +131,7 @@ Rf.F_N = F_N;      Rf.F_D = F_D;
 Rf.CL = CL;        Rf.CD = CD;        Rf.CL_alpha = CL_alpha;
 Rf.AR_eff = AR_eff;
 Rf.alpha = alpha;  Rf.beta_r = beta_r;
-Rf.vent_state = vent_new;   Rf.k_vent = k_vent;
+Rf.vent_state = vent_new;   Rf.k_vent = k_vent;   Rf.vent_forced = Rf_forced;
 Rf.M_h = M_h;      Rf.tau_servo = tau_servo;   Rf.e_arm = e_arm;
 Rf.sigma = sigma;
 

@@ -98,6 +98,22 @@ fh = @autopilotStep;
 
         %% ---- 1. Sensors ---------------------------------------------
         [meas, mem.sens] = sensorModel(t, x, mem.sens, P);
+
+        % SENSOR fault: GPS dropout. The last valid fix is held, so the
+        % guidance keeps steering to a position estimate that is going stale
+        % at the boat's own speed -- 8 m/s of accumulating error per second.
+        % The IMU is unaffected, so heading hold survives; it is CROSS-TRACK
+        % that degrades.
+        if isfield(cfg,'gps_dropout') && ~isempty(cfg.gps_dropout) && ...
+           t >= cfg.gps_dropout(1) && t <= cfg.gps_dropout(2)
+            if isfield(mem,'gps_frozen')
+                meas.X = mem.gps_frozen(1);  meas.Y = mem.gps_frozen(2);
+                meas.chi = mem.gps_frozen(3); meas.cog_valid = false;
+            end
+        else
+            mem.gps_frozen = [meas.X, meas.Y, meas.chi];
+        end
+
         U_sched = meas.spd_sched;
 
         %% ---- 2. Gains -----------------------------------------------
@@ -155,6 +171,10 @@ fh = @autopilotStep;
         mem.I_u = max(min(mem.I_u, 100), -100);
 
         aopts = struct('clamp_at_vent', cfg.clamp_vent);
+        if isfield(cfg,'rudder_failed_at') && ~isempty(cfg.rudder_failed_at) ...
+                && t >= cfg.rudder_failed_at
+            aopts.rudder_failed = true;
+        end
         if isfield(cfg,'u_alloc_fix') && ~isempty(cfg.u_alloc_fix)
             aopts.u_alloc_fix = cfg.u_alloc_fix;
         end

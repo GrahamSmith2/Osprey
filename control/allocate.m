@@ -55,6 +55,13 @@ q        = 0.5 * E.rho_w * u_alloc^2;
 dN_ddelta = q * R.A_r * CL_alpha * abs(P.x_r);        % [N*m/rad]
 N_rud_max = dN_ddelta * delta_useful;                 % [N*m]
 
+% opts.rudder_failed models a fault-detection system having concluded the
+% rudder is not responding, so the allocator stops crediting it with any
+% authority and routes the whole demand to differential thrust.
+if getf(opts, 'rudder_failed', false)
+    N_rud_max = 0;
+end
+
 %% ---- Rudder first ------------------------------------------------------
 N_rud_cmd = max(min(N_cmd, N_rud_max), -N_rud_max);
 if dN_ddelta > 1e-9

@@ -25,6 +25,16 @@ dt      = getf(opts, 'dt',      0.002);   % [s] integrator step (500 Hz)
 f_ctrl  = getf(opts, 'f_ctrl',  50);      % [Hz] controller rate
 delay_n = getf(opts, 'delay_n', 1);       % [-] compute delay, in controller ticks
 
+% Fault injection. PLANT faults live here (the controller must not be told);
+% SENSOR faults live in makeAutopilot. Keeping them apart matters: a fault the
+% controller knows about in advance is not a fault, it is a mode change.
+%   fault.type   'none' | 'rudder_jam' | 'motor_out' | 'ventilation'
+%   fault.t0     [s] onset
+%   fault.value  jam angle [rad], or 1/2 for which motor is lost
+fault = getf(opts, 'fault', struct('type','none'));
+if ~isfield(fault,'t0'),    fault.t0 = inf;  end
+if ~isfield(fault,'value'), fault.value = 0; end
+
 n_sub = max(round((1/f_ctrl)/dt), 1);     % integrator steps per controller tick
 dt    = (1/f_ctrl)/n_sub;                 % make them commensurate exactly
 n_tick = ceil(tf * f_ctrl);
@@ -89,10 +99,29 @@ for it = 1:n_tick
             delta_blade = x(9);
         end
 
+        % --- Inject plant faults. The controller is NOT informed; it sees only
+        % what the sensors report, which is the whole point of the exercise.
+        ctrl_f = ctrl_now;
+        if t >= fault.t0
+            switch fault.type
+                case 'rudder_jam'
+                    % Blade mechanically stuck. The servo may keep moving --
+                    % the linkage has failed -- but the water sees a fixed angle.
+                    delta_blade = fault.value;
+                case 'motor_out'
+                    % ESC shutdown: the command goes to zero and the thrust
+                    % decays through its own spool-down lag.
+                    if fault.value == 1, ctrl_f.T_cmd_port = 0;
+                    else,                ctrl_f.T_cmd_stbd = 0; end
+                case 'ventilation'
+                    vent = 2;      % sentinel: forced, bypasses the latch
+            end
+        end
+
         % --- Log at the start of the step. This SAME evaluation is RK4 stage 1,
         % so it is captured once and reused below rather than recomputed --
         % the arguments are identical and it was ~20% of the run time.
-        [f1, D] = eom3dof(t, x, ctrl_now, vent, P, delta_blade);
+        [f1, D] = eom3dof(t, x, ctrl_f, vent, P, delta_blade);
         S.x(k,:)          = x.';
         S.delta_cmd(k)    = ctrl_now.delta_cmd;
         S.delta_blade(k)  = delta_blade;
@@ -109,13 +138,17 @@ for it = 1:n_tick
 
         % --- RK4, ventilation latch frozen across all four stages.
         % f1 came from the logging evaluation above.
-        f2 = eom3dof(t+dt/2,   x+dt/2*f1,     ctrl_now, vent, P, delta_blade);
-        f3 = eom3dof(t+dt/2,   x+dt/2*f2,     ctrl_now, vent, P, delta_blade);
-        f4 = eom3dof(t+dt,     x+dt*f3,       ctrl_now, vent, P, delta_blade);
+        f2 = eom3dof(t+dt/2,   x+dt/2*f1,     ctrl_f, vent, P, delta_blade);
+        f3 = eom3dof(t+dt/2,   x+dt/2*f2,     ctrl_f, vent, P, delta_blade);
+        f4 = eom3dof(t+dt,     x+dt*f3,       ctrl_f, vent, P, delta_blade);
         x  = x + dt/6*(f1 + 2*f2 + 2*f3 + f4);
 
         % --- Update the latch ONCE, after the step is complete
         vent = D.vent_state;
+        % A forced-ventilation fault must survive the latch update, otherwise
+        % the blade would re-wet the moment the deflection dropped and the
+        % fault would quietly cure itself.
+        if t >= fault.t0 && strcmp(fault.type, 'ventilation'), vent = 2; end
 
         k = k + 1;
     end
