@@ -83,10 +83,10 @@ fh = @autopilotStep;
             % Growing a struct array element by element reallocates the whole
             % thing every tick -- O(n^2) -- and it was a measurable fraction of
             % the run time before the Monte Carlo made it matter.
-            % 20,000 ticks at 50 Hz = 400 s of run time, more than any run here
-            % needs, and only ~1.6 MB. Sizing this at 200k would cost 16 MB that
-            % gets carried through the controller memory on every single tick.
-            nmax = 20000;
+            % 40,000 ticks at 50 Hz = 800 s, which covers the full 2-mile course
+            % (~400 s at 8 m/s) with headroom, at ~3 MB. Sizing this at 200k
+            % would cost 16 MB carried through controller memory every tick.
+            nmax = 40000;
             mem.n_log = 0;
             mem.log = struct('t',zeros(nmax,1), 'e_cross',zeros(nmax,1), ...
                              'psi_cmd',zeros(nmax,1), 'r_cmd',zeros(nmax,1), ...

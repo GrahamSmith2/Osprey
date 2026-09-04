@@ -365,6 +365,78 @@ Two implementation notes:
 
 ---
 
+## 4d. Full 2-mile course
+
+> **The course geometry is a PLACEHOLDER.** The PEP layout and buoy turn radii
+> were never supplied, so `analysis/courseGeometry.m` generates a parametric
+> course of the correct total length (3217 m = 2.00 miles). Swap in the real
+> waypoint list and nothing downstream changes. **The numbers below are
+> illustrative of the boat, not predictions for your course.**
+
+### Result depends heavily on mark geometry — which is the useful finding
+
+**Oval circuit** (3217 m, marks rounded at 25 m, 16.4° max leg-to-leg turn),
+commanded 8 m/s:
+
+| case | straight [m] | corner [m] | distance | time | avg speed |
+|---|---|---|---|---|---|
+| as-built, calm | 1.80 | 4.30 | 3239 m | 405 s | 8.00 m/s |
+| as-built, 15 kt + current | 1.80 | 4.65 | 3237 m | 405 s | 7.99 m/s |
+| recommended, calm | 1.80 | 4.16 | 3238 m | 405 s | 7.99 m/s |
+| recommended, 15 kt + current | 1.79 | 4.46 | 3237 m | 405 s | 7.99 m/s |
+
+**All four complete, and rudder size makes almost no difference.** A rounded
+oval never asks for a hard single turn — the arc is many short legs and LOS
+smooths through it — so the as-built blade copes.
+
+**Triangle buoy course** (1200 m, three sharp 120° marks), 15 kt crosswind:
+
+| rudder | straight [m] | corner [m] | extra distance |
+|---|---|---|---|
+| as-built 75 mm | **22.86** | 23.88 | 4.3% |
+| recommended 150 mm | **14.07** | 20.18 | 3.4% |
+| oversize 220 mm | **11.78** | 19.56 | 3.2% |
+
+**Here rudder size matters a great deal** — straight-leg error nearly halves.
+The error is dominated not by the corner itself but by how long the boat takes
+to re-acquire the line *after* it, which is exactly what turn radius governs.
+
+Average speed is unaffected in every case (the speed loop holds 8 m/s); the
+penalty shows up as **extra distance travelled**, 3.2–4.3%.
+
+### What to check when the real geometry arrives
+
+The boat's steady turn radius at useful deflection is **~20 m as-built, ~10 m
+recommended**. Cross-track at a mark, on the placeholder oval under disturbance:
+
+| mark radius | as-built | recommended |
+|---|---|---|
+| 40 m | 2.36 m | 2.26 m |
+| 30 m | 3.14 m | 3.04 m |
+| 25 m | 3.69 m | 2.87 m |
+| 20 m | 4.91 m | 5.42 m |
+| 15 m | 8.19 m | 6.65 m |
+| 12 m | 10.55 m | 8.61 m |
+
+**If any real mark requires a turn tighter than ~20 m radius, the as-built
+rudder cannot hold it and no amount of tuning will change that.** That single
+comparison — your tightest mark against the 20 m / 10 m figures — is the
+question the real course geometry needs to answer.
+
+### A correction
+
+An earlier run of this study reported the as-built rudder losing the course
+under disturbance with 353 m of cross-track error. **That was a measurement bug,
+not a boat result.** Progress along the course was computed by nearest leg,
+which is wrong on a closed circuit: when the boat came back around to leg 1,
+progress collapsed to ~0, the finish was never detected, and the boat sailed on
+past the last mark with nothing to steer to. The 353 m was recorded at
+t = 605–644 s at X = 1908 m — well beyond the 1555 m end of the course. Progress
+is now tracked by advancing leg index, the way the guidance itself does.
+**The as-built rudder completes the oval course in every condition tested.**
+
+---
+
 ## 5. Validity limits — where this model stops being usable
 
 **Cavitation.** σ falls below 0.5 at **19.8 m/s (44 mph)** and reaches 0.154 at

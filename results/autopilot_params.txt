@@ -7,15 +7,15 @@
 # is trustworthy, the absolute values are not. Start at 50% of the
 # P gains below and increase on the water.
 #
-# Nomoto fit: K' = 0.506, T' = 1.084 (identified on the sim, not the boat)
+# Nomoto fit: K' = 0.506, T' = 1.083 (identified on the sim, not the boat)
 # At U_ref: K = 1.587 1/s, T = 0.345 s
 #
 
 # ---- Steering rate controller (inner loop) ----
-ATC_STR_RAT_P,1.4238
-ATC_STR_RAT_I,4.1257
+ATC_STR_RAT_P,1.4231
+ATC_STR_RAT_I,4.1250
 ATC_STR_RAT_D,0.0000
-ATC_STR_RAT_FF,1.0314
+ATC_STR_RAT_FF,1.0313
 ATC_STR_RAT_FLTT,1.27
 ATC_STR_RAT_FLTD,10.00
 ATC_STR_RAT_MAX,18.6
@@ -59,8 +59,8 @@ MOT_THR_MAX,100
 # ATC_STR_RAT_P must scale as (U_ref/U)^2. Apply via Lua, or accept
 # ~3x worse overshoot at the low-speed end.
 #   U [m/s]    ATC_STR_RAT_P    ATC_STR_RAT_I
-#      2.2          13.2058          12.5645
-#      4.0           3.9948           6.9105
-#      6.7           1.4238           4.1257
-#     10.0           0.6392           2.7642
-#     13.4           0.3560           2.0628
+#      2.2          13.1993          12.5626
+#      4.0           3.9928           6.9094
+#      6.7           1.4231           4.1250
+#     10.0           0.6388           2.7638
+#     13.4           0.3558           2.0625

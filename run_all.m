@@ -26,9 +26,11 @@
 %   [done]    analysis 1        -- rudder sizing band (span, not area)
 %   [done]    analysis 2        -- servo spec + recheck of the report's 66 kg-cm
 %   [done]    analysis 3        -- gain schedule table
-%   [pending] analysis 4        -- Monte Carlo robustness (>=500 LHS runs)
-%   [pending] analysis 5        -- full 2-mile course in wind and current
-%   [pending] analysis 6        -- failure modes (jam, motor out, GPS dropout)
+%   [done]    analysis 4        -- Monte Carlo robustness (analysis/monteCarlo.m,
+%                                  run separately: ~2 s per draw)
+%   [done]    analysis 5        -- full 2-mile course in wind and current
+%   [done]    analysis 6        -- failure modes (jam, motor out, GPS dropout,
+%                                  latched ventilation)
 
 clc;
 here = fileparts(mfilename('fullpath'));
@@ -157,6 +159,30 @@ else
     fprintf('  stock chordwise position, which has not been measured.\n');
 end
 fprintf('  As-built MHZ blade in band: %d\n', ST.baseline_in_band);
+
+%% ---- 5b. Failure modes -------------------------------------------------
+fprintf('\n--- Failure modes ---\n');
+FM = failureModes(P, NM);
+fprintf('  %-22s %14s %10s\n', 'fault', 'cross-track[m]', 'recovers');
+for i = 1:numel(FM.name)
+    fprintf('  %-22s %14.2f %10d\n', FM.name{i}, FM.e_max_after(i), FM.recovered(i));
+end
+fprintf('  Rudder jam is recoverable only below u = %.1f m/s -- differential\n', FM.jam_u_safe);
+fprintf('  thrust is speed-independent while the jam grows as u^2, so the\n');
+fprintf('  failure response is to COMMAND SPEED DOWN to <= 5 m/s.\n');
+
+%% ---- 5c. Full 2-mile course -------------------------------------------
+fprintf('\n--- 2-mile course (PLACEHOLDER geometry -- see courseGeometry.m) ---\n');
+[wpts, cinfo] = courseGeometry('oval');
+CS = courseSim(P, NM, wpts);
+fprintf('  course length %.0f m (%.2f miles)\n', cinfo.length, cinfo.length/1609.34);
+fprintf('  %-32s %8s %8s %7s %7s\n','case','e_str[m]','e_cor[m]','t[s]','u_avg');
+for i = 1:numel(CS.name)
+    fprintf('  %-32s %8.2f %8.2f %7.0f %7.2f\n', CS.name{i}, ...
+        CS.e_straight(i), CS.e_corner(i), CS.t_finish(i), CS.u_avg(i));
+end
+fprintf('  Boat turn radius: ~20 m as-built, ~10 m recommended. If any real\n');
+fprintf('  mark is tighter than that, no tuning will hold it.\n');
 
 %% ---- 6. Autopilot parameters ------------------------------------------
 fn = writeAutopilotParams(P, NM);
