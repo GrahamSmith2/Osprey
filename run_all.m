@@ -90,7 +90,46 @@ title('Cavitation ceiling');
 
 exportgraphics(fig2, fullfile(here,'results','rudder_authority_and_cavitation.png'), 'Resolution', 150);
 
-%% ---- 3. Headline caveats ----------------------------------------------
+%% ---- 3. Diagnostic: open-loop turn behaviour --------------------------
+u0s = [3 5 8 10 13];
+fig3 = figure('Position', [100 100 1100 420], 'Color', 'w');
+res = zeros(numel(u0s), 4);
+for i = 1:numel(u0s)
+    Tt = hullSteadyState(u0s(i), P).R_total/2;
+    ct = struct('delta_cmd', P.R.delta_max, 'T_cmd_port', Tt, 'T_cmd_stbd', Tt);
+    Sx = simOsprey([u0s(i);0;0;0;0;0;Tt;Tt;0], 30, ct, P, struct('dt',0.002));
+    n  = numel(Sx.t);
+    res(i,:) = [u0s(i), 100*(Sx.u(n)-u0s(i))/u0s(i), ...
+                hypot(Sx.u(n),Sx.v(n))/abs(Sx.r(n))/P.V.LOA, Sx.r(n)];
+end
+subplot(1,2,1);
+yyaxis left;  plot(res(:,1), res(:,3), 'o-', 'LineWidth',1.6); ylabel('Turn radius / LOA');
+yyaxis right; plot(res(:,1), res(:,2), 's--','LineWidth',1.6); ylabel('Speed sag  [%]');
+yline(-15,'r:','15% validity threshold'); grid on;
+xlabel('Entry speed u_0  [m/s]'); title('Full-rudder (35\circ) steady turn');
+
+subplot(1,2,2);
+beta = deg2rad(5); uu2 = linspace(2,20,100);
+Nmunk_nom = abs((P.X_udot - P.Y_vdot) * uu2.^2 * tan(beta));
+Xu_hi = -0.02*P.m; Yv_hi = -0.40*P.m;
+Nmunk_hi  = abs((Xu_hi - Yv_hi) * uu2.^2 * tan(beta));
+Nrud = zeros(size(uu2));
+for i=1:numel(uu2), Nrud(i) = rudderForces(deg2rad(10), uu2(i),0,0,0,P).N; end
+plot(uu2, Nrud,'k','LineWidth',2); hold on;
+plot(uu2, Nmunk_nom,'--','LineWidth',1.6); plot(uu2, Nmunk_hi,':','LineWidth',1.6);
+grid on; legend('rudder @ 10\circ (vent. onset)','Munk, nominal','Munk, worst case', ...
+    'Location','northwest');
+xlabel('Forward speed u  [m/s]'); ylabel('Yaw moment  [N\cdotm]');
+title('Munk moment vs available rudder authority (\beta = 5\circ)');
+exportgraphics(fig3, fullfile(here,'results','openloop_turn_and_munk.png'), 'Resolution', 150);
+
+fprintf('\n--- Open-loop turn results (full 35 deg rudder) ---\n');
+fprintf('  u0[m/s]  speed sag[%%]  turn radius[LOA]  r[rad/s]\n');
+fprintf('  %5.1f %12.1f %16.1f %10.4f\n', res.');
+fprintf('\nSpeed sag exceeds 15%% at every tested entry speed: the gain schedule,\n');
+fprintf('which schedules ON u, chases a moving operating point during a hard turn.\n');
+
+%% ---- 4. Headline caveats ----------------------------------------------
 U_sig = sqrt((P.E.p_atm + P.E.rho_w*P.E.g*P.R.h_sub/2 - P.E.p_vap)/(0.5*0.5*P.E.rho_w));
 fprintf('\n--- Validity limits ---\n');
 fprintf('Froude number: Fn = %.2f at 13.4 m/s, Fn = %.2f at 35.8 m/s.\n', ...

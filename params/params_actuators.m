@@ -43,11 +43,19 @@ A.Kv           = 680;           % [rpm/V] Castle 2535
 A.n_max        = 23150/60;      % [rev/s] logged planing peak RPM
 A.I_peak       = 45;            % [A] logged peak, per motor
 
-% Simple KT(J) linear fit: KT = KT0 - KT1*J, zero-thrust at J = KT0/KT1.
-% Graupner K-series 76 mm data not in hand -- these are generic small high-speed
-% prop values and are a PLACEHOLDER. Thrust magnitude matters for the
-% differential-thrust allocator crossover speed only. See ASSUMPTIONS.md #A8.
-A.KT0 = 0.14;                   % [-]
-A.KT1 = 0.16;                   % [-]
+% KT(J) map: KT = KT0*(1 - J/J0). KT0 is CALIBRATED in propMaxThrust against
+% the logged top-speed run, so only J0 (the zero-thrust advance ratio, which is
+% essentially a pitch/diameter proxy) is assumed.
+%
+% <<FILL>> Graupner K-series 76 mm open-water data not supplied.
+%
+% J0 IS LOAD-BEARING, so it is stated rather than buried. At the logged
+% 23,150 rpm the boat cannot exceed u = J0*n*D. A generic J0 = 0.9 caps the
+% boat at 26.4 m/s, which would make the 35.8 m/s design speed unreachable --
+% so a generic value from the wrong class of propeller is not admissible here.
+% Reaching 35.8 m/s requires J0 >= 1.22 (P/D ~ 1.4), which is ordinary for a
+% high-speed surface-piercing race prop. Nominal 1.35 leaves ~10% margin.
+% If the real prop is lower-pitched, the top speed claim goes with it.
+A.J0_prop = 1.35;               % [-] zero-thrust advance ratio -- FILL from data
 
 end

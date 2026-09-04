@@ -143,6 +143,70 @@ position.**
 
 ---
 
+### A11 — Linear hull derivatives from Clarke (1982), area-scaled
+**Assumption.** `Yv, Yr, Nv, Nr` from the Clarke regression evaluated per
+demihull at the displacement condition and doubled, then scaled by
+`SW(u)/SW_disp` as the hull climbs out of the water.
+**Why.** Clarke is the standard slender-body regression and at least has the
+right *structure* (forces linear in U, proportional to immersed area). The
+alternative was inventing numbers with no pedigree at all.
+**Error direction.** Unknown in sign, large in magnitude. Clarke is fitted at
+Fn < 0.3 on displacement monohulls; this is a Fn 2.9–7.8 planing catamaran. The
+area-scaling proxy is itself an assumption — real planing hulls lose lateral
+force faster than wetted area alone suggests, because what remains is a flat
+pad with little lateral projection. So the derivatives here are probably
+**over-estimated at high speed**, making the boat look more directionally
+damped than it is.
+**Handling.** Swept ±5× (log-uniform). No conclusion is reported unless it
+survives that sweep.
+
+---
+
+### A12 — The Munk moment is NOT small (finding, not assumption)
+The prompt anticipated a small Munk moment for a planing hull. The model says
+otherwise, and this is now a recorded result rather than an assumption:
+
+At u = 13.4 m/s and 5° sideslip, against 64.4 N·m of rudder moment at
+ventilation onset:
+
+| Added-mass case | X_udot | Y_vdot | N_munk | vs rudder |
+|---|---|---|---|---|
+| Xudot hi / Yvdot lo | −6.63 | −2.21 | **−69.4 N·m** | 108% |
+| nominal | −2.21 | −6.63 | **+69.4 N·m** | 108% |
+| Xudot lo / Yvdot hi | −0.88 | −17.68 | **+263.9 N·m** | 409% |
+
+Two consequences:
+1. The Munk moment **equals or exceeds full useful rudder authority** across
+   most of the declared range.
+2. **Its SIGN is not determined** by the current data — it flips depending on
+   whether surge or sway added mass dominates. A destabilising Munk moment
+   makes the boat directionally divergent in sideslip; a stabilising one does
+   the opposite.
+
+In the settled 8° turn at 8 m/s the yaw balance is essentially *rudder against
+Munk*, with hull damping contributing under 3% of the budget. That is a
+qualitatively different plant from the one the control design was expected to
+target.
+
+**This is the highest-value measurement to collapse.** A single towing-tank or
+on-water sideslip test that pins Y_vdot would resolve both the magnitude and
+the sign.
+
+---
+
+### A13 — Speed sag invalidates mid-manoeuvre linearisation (finding)
+Open-loop full-rudder (35°) turns from steady state lose **13.7% to 33.8%** of
+forward speed, exceeding the 15% validity threshold at four of five tested
+entry speeds. Since the gain schedule schedules *on measured u*, the controller
+is chasing a moving operating point throughout any hard turn.
+
+**Consequence for the design:** the gain schedule must be validated against the
+*swept* speed range encountered during a manoeuvre, not just the entry speed,
+and commanded yaw rate should be limited to keep sag inside the band where the
+schedule is valid.
+
+---
+
 ## Assumptions ranked by impact on the rudder-sizing conclusion
 
 *Placeholder ordering, from the sensitivity runs completed so far. To be

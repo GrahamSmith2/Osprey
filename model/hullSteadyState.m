@@ -30,7 +30,11 @@ function H = hullSteadyState(u, P)
 %   H.U_transition[m/s] blend midpoint (scalar)
 
 V = P.V;  E = P.E;
-u = u(:).';                       % row, so all outputs are rows
+% Speed MAGNITUDE. Everything here (wetted area, trim, resistance magnitude) is
+% even in u -- a boat dragged backwards through the water has the same wetted
+% area. The DIRECTION of the resistance force is applied by the caller
+% (hullForces), which knows the sign of the water-relative velocity.
+u = abs(u(:).');                  % row, so all outputs are rows
 W = P.m * E.g;                    % [N] weight
 
 %% ---- 1. Tunnel aerodynamic lift ---------------------------------------
