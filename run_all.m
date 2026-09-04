@@ -20,9 +20,15 @@
 %   [pending] servoDynamics     -- rate limit, lag, backlash, saturation
 %   [pending] sensors           -- GPS, IMU, COG-vs-heading, ZOH, compute delay
 %   [pending] rollEnvelope      -- blow-over / hook check -> r_max_safe(u)
-%   [pending] control           -- LOS guidance, heading PID, yaw-rate PI, allocator
-%   [pending] analyses 1-6      -- sizing sweep, servo spec, gain schedule,
-%                                  Monte Carlo, full course, failure modes
+%   [done]    sensors           -- GPS, IMU, COG-vs-heading, ZOH, compute delay
+%   [done]    rollEnvelope      -- blow-over / hook check -> r_max_safe(u)
+%   [done]    control           -- LOS guidance, heading PID, yaw-rate PI, allocator
+%   [done]    analysis 1        -- rudder sizing band (span, not area)
+%   [done]    analysis 2        -- servo spec + recheck of the report's 66 kg-cm
+%   [done]    analysis 3        -- gain schedule table
+%   [pending] analysis 4        -- Monte Carlo robustness (>=500 LHS runs)
+%   [pending] analysis 5        -- full 2-mile course in wind and current
+%   [pending] analysis 6        -- failure modes (jam, motor out, GPS dropout)
 
 clc;
 here = fileparts(mfilename('fullpath'));
@@ -129,7 +135,34 @@ fprintf('  %5.1f %12.1f %16.1f %10.4f\n', res.');
 fprintf('\nSpeed sag exceeds 15%% at every tested entry speed: the gain schedule,\n');
 fprintf('which schedules ON u, chases a moving operating point during a hard turn.\n');
 
-%% ---- 4. Headline caveats ----------------------------------------------
+%% ---- 4. Nomoto identification and gain schedule ------------------------
+NM = identifyNomoto(P);
+fprintf('\n--- Nomoto identification ---\n');
+fprintf('K'''' = %.3f (spread %.0f%%)   T'''' = %.3f (spread %.0f%%)   scaling holds: %d\n', ...
+    NM.K_prime, 100*NM.K_prime_spread, NM.T_prime, 100*NM.T_prime_spread, NM.scaling_holds);
+
+%% ---- 5. Rudder sizing band --------------------------------------------
+fprintf('\n--- Rudder sizing sweep (this takes a couple of minutes) ---\n');
+ST = runSizingStudy(P, NM);
+fprintf('  span[mm]  A/A0   R@%.0fm/s[LOA]  servo[%%stall]  feasible\n', ST.spec.U_min);
+for i = 1:numel(ST.spans)
+    fprintf('  %7.0f %6.2f %13.2f %13.0f %10d\n', ST.spans(i)*1000, ...
+        ST.A_r(i)/2.25e-3, ST.R_min(i), 100*ST.tau_frac_LE(i), ST.ok_all(i));
+end
+if ST.feasible
+    fprintf('  FEASIBLE BAND: span %.0f-%.0f mm\n', ST.span_min*1000, ST.span_max*1000);
+else
+    fprintf('  NO FEASIBLE BAND at this spec -- the turn and servo bounds cross.\n');
+    fprintf('  See results/summary.md sec.2: the outcome depends on the rudder\n');
+    fprintf('  stock chordwise position, which has not been measured.\n');
+end
+fprintf('  As-built MHZ blade in band: %d\n', ST.baseline_in_band);
+
+%% ---- 6. Autopilot parameters ------------------------------------------
+fn = writeAutopilotParams(P, NM);
+fprintf('\nArduPilot Rover parameters written to %s\n', fn);
+
+%% ---- 7. Headline caveats ----------------------------------------------
 U_sig = sqrt((P.E.p_atm + P.E.rho_w*P.E.g*P.R.h_sub/2 - P.E.p_vap)/(0.5*0.5*P.E.rho_w));
 fprintf('\n--- Validity limits ---\n');
 fprintf('Froude number: Fn = %.2f at 13.4 m/s, Fn = %.2f at 35.8 m/s.\n', ...

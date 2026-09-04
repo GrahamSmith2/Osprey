@@ -203,7 +203,10 @@ flo = f(lo);  fhi = f(hi);
 if flo * fhi > 0
     x = NaN;  return              % no bracketed root: caller handles via blend
 end
-for i = 1:80
+% 40 halvings resolves the widest bracket used here (0 to 60) to ~5e-11, which
+% is far below any physical significance. 80 was pure waste: hullSteadyState is
+% called four times per RK4 stage, so this loop dominates the whole simulation.
+for i = 1:40
     mid = 0.5*(lo+hi);  fm = f(mid);
     if flo * fm <= 0, hi = mid; fhi = fm; else, lo = mid; flo = fm; end
 end
