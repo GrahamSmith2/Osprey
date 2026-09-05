@@ -33,6 +33,38 @@ if nargin < 2 || isempty(total_len), total_len = 3218; end   % 2 miles
 if nargin < 3 || isempty(R_turn),    R_turn = 25; end        % [m]
 
 switch lower(type)
+    case 'marks'
+        % THE ACTUAL PEP26 COURSE as described by the team (2026-09-04):
+        % TWO MARKS, run as an oval / dogbone -- up one side, 180 deg around
+        % the first mark, back down the other side, 180 deg around the second.
+        % Both roundings in the same direction; no crossing.
+        %
+        % Arguments are repurposed for this shape:
+        %   total_len -> D, the straight-line separation between the two marks
+        %   R_turn    -> the rounding radius, which is a STRATEGY CHOICE, not a
+        %                course constraint. The boat picks it, bounded below by
+        %                what the rudder can actually achieve.
+        %
+        % Lap length = 2*D + 2*pi*R_turn. NOTE this does NOT come to 0.5 mile
+        % for D = 0.25 mile: the straights alone are already half a mile, so a
+        % lap is 0.54-0.58 mile depending on how tightly the marks are rounded.
+        % Whichever of those two figures is authoritative should be confirmed.
+        D  = total_len;
+        Rt = R_turn;
+        na = 24;                                   % points per 180 deg rounding
+        th = linspace(-pi/2, pi/2, na).';
+        % Straight north along y = 0, round the north mark, straight south
+        % along y = 2*Rt, round the south mark.
+        wpts = [ 0 0;  D 0; ...
+                 D + Rt*cos(th),  Rt + Rt*sin(th); ...
+                 D 2*Rt;  0 2*Rt; ...
+                 Rt*cos(th+pi),   Rt + Rt*sin(th+pi) ];
+        info.shape      = 'marks';
+        info.separation = D;
+        info.radius     = Rt;
+        info.lap_len    = 2*D + 2*pi*Rt;
+        info.n_marks    = 2;
+
     case 'circle'
         % THE ACTUAL PEP26 AUTONOMY COURSE (per the team, 2026-09-04):
         % a circle, one lap = 0.5 statute mile, four laps for the 2-mile race.
