@@ -111,7 +111,8 @@ for winning.
 | A2 | **Where does the rudder stock sit on the blade, as a fraction of chord?** | Decides whether the existing servo is adequate. The answer swings the requirement from ~0 to 45 kg·cm. We were going to measure it; you may just know. |
 | A3 | **What is the rudder tiller arm radius?** | Scales servo torque linearly. Never recorded. |
 | A4 | **Why do you think the raw-water side never flowed?** Air lock, pickup geometry, insufficient dynamic pressure, blockage? | Determines whether we add pumps or redesign the pickups. |
-| A5 | **What is your read on 45 A when you expected 100?** Prop pitch, diameter, slip, cavitation? | This is the single biggest open question on the boat. |
+| A5 | **What is your read on 45 A when you expected 100?** Prop pitch, diameter, slip, cavitation? | This is the single biggest open question on the boat. The ESC is rated 180 A and the boat used 25% of it, so speed is being left on the table somewhere between motor and water. |
+| A5b | **Did anyone ever pull the Castle Link RPM and power logs?** | The thesis says Castle Link exposes exactly the RPM and power data needed for propeller selection, and that they never got to use it. If those logs exist they settle A5 outright. If not, it is the first test we should run. |
 | A6 | **Was there ever a problem with the 12 V battery, or is it just old?** | The work list says "new 12 V battery" but the thesis reports no fault. |
 | A7 | **What did you try on cooling that did not work?** | Stops us repeating it. |
 | A8 | **How much of the boat is one-off?** Which parts would be hard to replace if we broke them? | Risk register for on-water testing. |
