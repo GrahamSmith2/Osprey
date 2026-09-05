@@ -4,7 +4,8 @@
 Assumes you are comfortable with software but **not** that you know planing-hull
 hydrodynamics. Everything domain-specific is explained where it matters.
 
-**Repo:** `C:\Osprey` (git, `main`, no remote yet)
+**Repo:** https://github.com/GrahamSmith2/Osprey — local working copy at
+`C:\Osprey`, branch `main`
 **Language:** MATLAB R2023b+, plain scripts and functions. **No Simulink, no
 OOP, no toolboxes.** Where a Control System Toolbox function would help, a
 plain-MATLAB equivalent is written instead. Verified: the repo runs on a MATLAB

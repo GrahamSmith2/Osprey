@@ -1,5 +1,7 @@
 # Osprey USV — Rudder Sizing & Heading Control Simulation
 
+<https://github.com/GrahamSmith2/Osprey>
+
 MATLAB simulation supporting rudder sizing, servo specification, and heading /
 cross-track controller design for **Osprey**, a 7 ft twin-inboard electric
 planing catamaran USV intended to run a 2-mile autonomous course.
