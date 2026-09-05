@@ -33,6 +33,28 @@ if nargin < 2 || isempty(total_len), total_len = 3218; end   % 2 miles
 if nargin < 3 || isempty(R_turn),    R_turn = 25; end        % [m]
 
 switch lower(type)
+    case 'circle'
+        % THE ACTUAL PEP26 AUTONOMY COURSE (per the team, 2026-09-04):
+        % a circle, one lap = 0.5 statute mile, four laps for the 2-mile race.
+        % Each lap is therefore exactly one half-mile scoring segment (10 pts).
+        %
+        %   lap circumference = 804.67 m  ->  R = 128.06 m = 60 boat lengths
+        %
+        % total_len is the FULL RACE distance here; R_turn is ignored because
+        % the radius follows from the lap length.
+        lap   = 0.5 * 1609.344;                 % [m] one half-mile lap
+        Rc    = lap / (2*pi);                   % [m] 128.06
+        nlap  = round(total_len / lap);         % 4 laps for 2 miles
+        per   = 48;                             % waypoints per lap
+        % 48 points/lap gives 16.8 m chords and a sagitta of only 0.14 m, so
+        % the polygon is a far better circle than the boat can track anyway.
+        th    = linspace(0, 2*pi*nlap, per*nlap + 1).';
+        wpts  = [Rc*sin(th), Rc*(1 - cos(th))]; % starts at origin heading north
+        info.shape   = 'circle';
+        info.radius  = Rc;
+        info.lap_len = lap;
+        info.n_laps  = nlap;
+
     case 'oval'
         % Perimeter = 2*L_straight + 2*pi*R  ->  solve for the straight length.
         L = (total_len - 2*pi*R_turn) / 2;
@@ -67,21 +89,30 @@ switch lower(type)
         error('courseGeometry: unknown type "%s"', type);
 end
 
-% Remove duplicate consecutive waypoints. The arc constructions above start at
-% the same point the preceding straight ends on, which produces a zero-length
-% leg. atan2(0,0) is then 0, so the leg bearing is garbage and the reported
-% "sharpest heading change" comes out as a spurious 180 deg.
-keep = [true; hypot(diff(wpts(:,1)), diff(wpts(:,2))) > 1e-9];
-wpts = wpts(keep,:);
+% Close the loop -- WITH A TOLERANCE. An exact inequality test is wrong here:
+% the circle ends at sin(8*pi), which is -1e-15 rather than 0, so an exact test
+% appends a duplicate start point and creates a leg ~1e-13 m long. Cumulative
+% progress then tops out at L_course minus one ulp and a `prog >= L_course`
+% finish test fails by a rounding error, making a boat that completed the race
+% look as though it never finished.
+if hypot(wpts(end,1)-wpts(1,1), wpts(end,2)-wpts(1,2)) > 1e-6
+    wpts(end+1,:) = wpts(1,:);
+end
 
-% Close the loop.
-if any(wpts(end,:) ~= wpts(1,:)), wpts(end+1,:) = wpts(1,:); end
+% Remove duplicate consecutive waypoints, AFTER closing the loop. The arc
+% constructions above start at the same point the preceding straight ends on,
+% which produces a zero-length leg; atan2(0,0) is then 0, so the leg bearing is
+% garbage and the reported "sharpest heading change" comes out as a spurious
+% 180 deg.
+keep = [true; hypot(diff(wpts(:,1)), diff(wpts(:,2))) > 1e-6];
+wpts = wpts(keep,:);
 
 d = hypot(diff(wpts(:,1)), diff(wpts(:,2)));
 info.length      = sum(d);
 info.n_wpts      = size(wpts,1);
-info.turn_radius = R_turn;
-info.placeholder = true;      % <-- every consumer must report this
+if ~isfield(info,'radius'), info.turn_radius = R_turn; else, info.turn_radius = info.radius; end
+% 'circle' is the real course; every other shape here is a placeholder.
+info.placeholder = ~strcmpi(type, 'circle');
 
 % Sharpest heading change between consecutive legs, and the turn radius that
 % implies at 8 m/s if taken in one steady turn.

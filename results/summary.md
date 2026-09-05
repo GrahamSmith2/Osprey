@@ -84,11 +84,36 @@ constraint entirely. Without it, the servo margin is the thing that fails.
 misses the turn requirement by roughly 2× (9.53 LOA against a 5 LOA spec) and is
 outside the band at every assumption set above.
 
-### Caveat on the spec itself
-`R_turn ≤ 5 LOA at 5 m/s` is **my** placeholder, not yours — the PEP course
-geometry and buoy turn radii were never supplied. The band scales directly with
-it, so substitute the real requirement before ordering anything. The table above
-gives the mapping from spec to span.
+### ⚠ THE SPEC ABOVE IS SUPERSEDED — read this before acting on the band
+
+`R_turn ≤ 5 LOA at 5 m/s` was **my** placeholder, invented because the course
+geometry was unknown. **The real course is now known and it is nothing like
+that spec.**
+
+The PEP course is a **circle, one lap = 0.5 statute mile**, four laps for the
+2-mile race (each lap is exactly one half-mile scoring segment). That gives:
+
+```
+lap circumference = 804.7 m   ->   RADIUS = 128.1 m = 60 boat lengths
+```
+
+Required steady rudder to hold that circle:
+
+| u [m/s] | required yaw rate | **required rudder** | lateral accel |
+|---|---|---|---|
+| 3 | 0.023 rad/s | **1.87°** | 0.007 g |
+| 5 | 0.039 rad/s | **1.83°** | 0.020 g |
+| 8 | 0.063 rad/s | **1.68°** | 0.051 g |
+| 13 | 0.102 rad/s | **1.52°** | 0.135 g |
+
+**Under 2° of rudder at every speed**, against a 10° ventilation onset and a 35°
+mechanical limit. The as-built blade achieves 9.5 LOA turn radius; the course
+asks for 60. **The turn-rate requirement is not binding, is not close to
+binding, and never was — the "empty band" above was an artefact of my invented
+spec, not a property of the boat.**
+
+The sizing table remains valid as a *mapping* from spec to span. It is simply
+being read at the wrong point. See §4d for what the real course does require.
 
 ---
 
@@ -365,16 +390,57 @@ Two implementation notes:
 
 ---
 
-## 4d. Full 2-mile course
+## 4d. Full 2-mile course — THE REAL GEOMETRY
 
-> **The course geometry is a PLACEHOLDER — and the PEP rules do not define it.**
-> The PEP26 Autonomy Division rules, the PEP26/PEP25 pages, and a competing
-> team's published white paper were all checked (see §4e). None state the
-> layout; it appears to be set on site. `analysis/courseGeometry.m` therefore
-> generates a parametric course of the correct total length (3217 m = 2.00
-> miles). Swap in the real waypoint list once ASNE briefs it and nothing
-> downstream changes. **The numbers below are illustrative of the boat, not
-> predictions for your course.**
+**Course: a circle, one lap = 0.5 statute mile, 4 laps = 2 miles.**
+Radius 128.1 m (60 boat lengths). Each lap is one half-mile scoring segment.
+Implemented as `courseGeometry('circle')`; `info.placeholder` is `false` for
+this shape only. (The PEP rules themselves do not state the layout — see §4e —
+so this comes from the team.)
+
+### At nominal parameters, both rudders run it cleanly
+
+| case | max track error | RMS | distance | time | avg speed | saturated | ventilation |
+|---|---|---|---|---|---|---|---|
+| as-built, calm | 1.58 m | 0.75 m | 3199 m | 400 s | 8.00 m/s | 0% | none |
+| as-built, 15 kt + current | 1.61 m | 0.76 m | 3199 m | 400 s | 8.00 m/s | 0% | none |
+| recommended, calm | 1.54 m | 0.74 m | 3199 m | 400 s | 8.00 m/s | 0% | none |
+| recommended, 15 kt + current | 1.56 m | 0.76 m | 3199 m | 400 s | 8.00 m/s | 0% | none |
+
+**The as-built rudder completes the real course, in wind and current, with 1.6 m
+of track error and no saturation.** On the nominal boat, it is adequate.
+
+### Under uncertainty the two separate sharply
+
+Monte Carlo, 60 identical LHS draws over all 15 uncertainties, one lap of the
+real circle, same fixed gains, 15 kt crosswind + 0.5 m/s current:
+
+| rudder | pass ≤5 m | unstable | median error | **saturated** |
+|---|---|---|---|---|
+| as-built 75 mm | 65% | 13% | 1.79 m | **41% of run** |
+| recommended 150 mm | **83%** | **8%** | 1.42 m | **0%** |
+
+**This is the real argument for a bigger rudder, and it is not the one made in
+§1–2.** The as-built blade can hold the circle — but with no margin. Across the
+plausible parameter range it spends 41% of the lap pinned at its useful
+deflection limit, and 13% of draws diverge. The recommended blade never
+saturates and cuts divergence to 8%.
+
+So the recommendation stands, with a corrected justification:
+
+> **Enlarge the rudder for disturbance-rejection margin under parameter
+> uncertainty, NOT for turn capability.** The course needs 1.7° of rudder; the
+> uncertainty needs headroom.
+
+(p95 figures are noisy at n = 60 — a single draw sets them — so median and
+saturation fraction are the trustworthy statistics here.)
+
+### For comparison: placeholder geometries, now superseded
+
+Retained because they bound what *would* have mattered had the course had sharp
+marks. On a triangle with three 120° marks, straight-leg error was 22.9 m
+as-built vs 14.1 m recommended — rudder size mattered enormously. **The real
+circular course has no corners at all, so none of that applies.**
 
 ### Result depends heavily on mark geometry — which is the useful finding
 

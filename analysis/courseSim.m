@@ -60,7 +60,9 @@ for i = 1:n
 
     % Along-track progress, to find the finish and to mask the post-finish tail.
     [prog, ecross, near] = trackProgress(S.X, S.Y, wpts, courseTurnRadius(wpts));
-    kf = find(prog >= L_course, 1);
+    % Tolerance, not an exact >=. Accumulated progress is a sum of leg lengths
+    % and cannot be expected to land exactly on their total.
+    kf = find(prog >= L_course - 1e-6, 1);
     if isempty(kf)
         kf = numel(S.t);  CS.finished(i) = false;
     else
@@ -123,9 +125,20 @@ close(fig);
 end
 
 % -------------------------------------------------------------------------
-function R = courseTurnRadius(wpts) %#ok<INUSD>
+function R = courseTurnRadius(wpts)
 % COURSETURNRADIUS  Radius around a mark inside which a sample counts as
 % "in the corner" rather than "on the straight".
+%
+% A SMOOTH course has no corners at all. The real PEP circle is discretised
+% into 48 waypoints per lap, 16.8 m apart, so a fixed 30 m mark radius would
+% flag EVERY sample as "in a corner" and return NaN straight-leg error. Detect
+% a smooth course from its leg-to-leg heading changes and disable the mask.
+a  = atan2(diff(wpts(:,2)), diff(wpts(:,1)));
+da = abs(mod(diff(a) + pi, 2*pi) - pi);
+if isempty(da) || max(da) < deg2rad(20)
+    R = 0;      % smooth course: no corners, everything is "straight"
+    return
+end
 %
 % This must key off the BOAT's turn radius, not the leg length. A first version
 % used 2*median(leg length), which is fine on the many-short-legs oval but

@@ -172,17 +172,22 @@ fprintf('  thrust is speed-independent while the jam grows as u^2, so the\n');
 fprintf('  failure response is to COMMAND SPEED DOWN to <= 5 m/s.\n');
 
 %% ---- 5c. Full 2-mile course -------------------------------------------
-fprintf('\n--- 2-mile course (PLACEHOLDER geometry -- see courseGeometry.m) ---\n');
-[wpts, cinfo] = courseGeometry('oval');
+fprintf('\n--- 2-mile course (REAL geometry: circle, 4 x 0.5 mile laps) ---\n');
+[wpts, cinfo] = courseGeometry('circle');
 CS = courseSim(P, NM, wpts);
-fprintf('  course length %.0f m (%.2f miles)\n', cinfo.length, cinfo.length/1609.34);
+fprintf('  radius %.1f m (%.1f LOA), lap %.0f m, %d laps, total %.0f m (%.2f mi)\n', ...
+    cinfo.radius, cinfo.radius/P.V.LOA, cinfo.lap_len, cinfo.n_laps, ...
+    cinfo.length, cinfo.length/1609.34);
+fprintf('  Steady rudder needed to hold this circle: under 2 deg at every speed,\n');
+fprintf('  against a 10 deg ventilation onset. The turn requirement is NOT binding.\n');
 fprintf('  %-32s %8s %8s %7s %7s\n','case','e_str[m]','e_cor[m]','t[s]','u_avg');
 for i = 1:numel(CS.name)
     fprintf('  %-32s %8.2f %8.2f %7.0f %7.2f\n', CS.name{i}, ...
         CS.e_straight(i), CS.e_corner(i), CS.t_finish(i), CS.u_avg(i));
 end
-fprintf('  Boat turn radius: ~20 m as-built, ~10 m recommended. If any real\n');
-fprintf('  mark is tighter than that, no tuning will hold it.\n');
+fprintf('  Both rudders complete it. Under +/-5x uncertainty they separate:\n');
+fprintf('  as-built passes 65%% and is saturated 41%% of the lap; the 150 mm\n');
+fprintf('  blade passes 83%% and never saturates. Size for MARGIN, not for turn.\n');
 
 %% ---- 6. Autopilot parameters ------------------------------------------
 fn = writeAutopilotParams(P, NM);
