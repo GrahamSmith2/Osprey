@@ -65,10 +65,15 @@ plausible parameter range the current blade spends **41% of a lap pinned at its
 useful limit**, against 0% for a 150 mm span blade. The argument for a new
 rudder is margin, not turning.
 
-**The powertrain looks about 4× short of the 80 mph design point.** Hull
-resistance implies ~10 kW effective at 35.8 m/s, so ~16 kW electrical at the
-63% chain efficiency their own log implies — roughly **180 A per motor against
-the 45 A they measured**. This is independent of prop assumptions.
+**The powertrain is correctly sized. The boat just is not using it.** Hull
+resistance implies ~10 kW effective at 80 mph, so ~16 kW electrical at the 63%
+chain efficiency their own log implies, which is **180 A per motor**. The Hydra
+Cobra 5 HV is rated **180 A continuous**: 180 × 44.4 × 2 = 16.0 kW against a
+16.0 kW requirement. The hardware matches the design point almost exactly.
+
+What is 4× short is the **actual current draw** — 45 A per motor where 180 A is
+available. That is a propeller and loading problem, not an installed-power
+problem, and no amount of new electronics fixes it.
 
 **Rule 21 requires a kill on GPS loss.** The craft must stop when navigation
 data is missing or corrupted, and judges watch it demonstrated. Whether the
@@ -166,7 +171,8 @@ them.*
 - **What did you underestimate most?**
 - **What is the biggest risk you think we are not seeing?**
 - **Is 80 mph realistic with this powertrain, or was that always aspirational?**
-  *(Our numbers say roughly 4× short. Their view on this settles D1.)*
+  *(The ESC is rated for it almost exactly. The gap is current draw, which
+  points at the prop. Their view settles D1.)*
 - **You mention the LMT 7065 as a future motor. How seriously did you look at
   it, and what made you stop short?**
 - **Would you do the autonomy division again, or race a different class?**

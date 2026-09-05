@@ -41,7 +41,8 @@ meeting, see `LEADS_BRIEF.md` Block D.
 1. **Driveline reliability** — the flex shaft escaped its collet mid-race and
    the boat had to be towed. Nothing else matters if this repeats.
 2. **Powertrain headroom** — the boat drew 45 A when ~100 A was expected, and
-   the 80 mph design point looks roughly 4× short on installed power [SIM].
+   the ESC is rated 180 A continuous, which is exactly what 80 mph needs [SIM].
+   The hardware is right-sized; the boat is drawing 4× less than it can.
 3. **Autonomy, starting point unknown** — RC control works and is documented
    [T §7.1]. An autonomous system is on the boat but excluded from the thesis,
    so whether it has ever steered anything is **[OPEN]**. This is the single
@@ -187,8 +188,9 @@ confirming the diagnosis [T §6.2].
 
 | # | Item | Notes |
 |---|---|---|
-| E1 | **Source replacement ESC** | Current: Hydra Cobra 5 HV, 12S, 50.4 V [T §3.2]. **[OPEN]** — same part, or upgrade? |
-| E2 | **Decide the current rating**, which depends on the speed target | See §4 below. At the logged 45 A the Cobra 5 is comfortable. If the 80 mph target is retained, **[SIM]** says ~180 A per motor is needed — a completely different ESC class. **This decision gates the ESC spec, the wiring, and the battery.** |
+| E1 | **Source replacement ESC — like-for-like is almost certainly right** | Current: Hydra Cobra 5 HV, 12S, 50.4 V, **rated 180 A continuous / 9 kW** [T §3.2]. **[SIM]** says 80 mph needs 180 A per motor, i.e. 180 × 44.4 × 2 = 16.0 kW against a 16.0 kW requirement. **The existing ESC is correctly sized for the full design point.** It has never been the bottleneck: at the logged 30 mph the boat used 25% of its rating. |
+| E2 | **The ESC is not what limits speed — the propeller is** | The boat draws 45 A where 180 A is available. The thesis expected ~100 A and attributes the shortfall to a prop that never loaded the motors [T §6]. Fixing that is free speed; a bigger ESC is not. Note also the thesis's own stated operating point of 140 A/motor corresponds to about **52 mph** by **[SIM]**, not 80 — their operating point and their top-speed claim were never the same number. |
+| E2b | **The one real reason to upgrade: thermal margin** | 180 A continuous is a rating that assumes the cooling works. It does not (§2.3). Running the existing ESC anywhere near its rating with a non-functioning raw-water loop is how you lose another one. **Fix cooling before chasing current, whichever ESC you buy.** |
 | E3 | **Add ripple monitoring to the pre-run checklist** | The data was in the Castle Link logs all along and was not being read. Cheap insurance. |
 | E4 | **Verify pack C-rating against ESC requirement on every battery change** | Root cause of the ESC failure. Make it a checklist line, not tribal knowledge. |
 | E5 | **Inspect/replace the second ESC** | It ran through the same high-ripple sessions. FET damage is cumulative. |
