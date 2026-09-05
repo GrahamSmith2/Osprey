@@ -6,6 +6,14 @@ MATLAB simulation supporting rudder sizing, servo specification, and heading /
 cross-track controller design for **Osprey**, a 7 ft twin-inboard electric
 planing catamaran USV intended to run a 2-mile autonomous course.
 
+**Prior work.** The vessel was designed and built by **Aidan Astudillo and Sean
+Lee** (Princeton MAE senior thesis, April 2026). Their thesis is included at
+[`docs/Astudillo_Lee_2026_Osprey_thesis.pdf`](docs/Astudillo_Lee_2026_Osprey_thesis.pdf)
+— © the authors, all rights reserved, reproduced with attribution for project
+continuity. It is the authoritative source for the as-built hardware; everything
+in `model/`, `control/` and `results/` is separate work built on top of it, and
+`docs/WORK_REMAINING.md` tags which is which.
+
 Plain MATLAB. No Simulink, no OOP, no required toolboxes. Entry point:
 `run_all.m`.
 

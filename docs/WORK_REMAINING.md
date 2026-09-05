@@ -6,7 +6,11 @@
 **Sources, and how to tell them apart:**
 - **[T §x]** — Astudillo & Lee, *"Osprey: High-Speed Electric Unmanned Surface
   Vessel for Payload Transport"*, Princeton MAE senior thesis, 23 April 2026
-  (93 pp). Their own findings and recommendations.
+  (93 pp). Their own findings and recommendations. Copy in this repo:
+  [`Astudillo_Lee_2026_Osprey_thesis.pdf`](Astudillo_Lee_2026_Osprey_thesis.pdf)
+  — © Aidan Astudillo and Sean Lee, 2026, all rights reserved; included here for
+  continuity of the project and reproduced with attribution, not as a work of
+  this repo. Images downsampled for size; text and pagination unchanged.
 - **[SIM]** — the manoeuvring simulation in this repo. See `results/summary.md`.
 - **[OPEN]** — not established by either. Needs a decision or a measurement.
 
