@@ -367,11 +367,14 @@ Two implementation notes:
 
 ## 4d. Full 2-mile course
 
-> **The course geometry is a PLACEHOLDER.** The PEP layout and buoy turn radii
-> were never supplied, so `analysis/courseGeometry.m` generates a parametric
-> course of the correct total length (3217 m = 2.00 miles). Swap in the real
-> waypoint list and nothing downstream changes. **The numbers below are
-> illustrative of the boat, not predictions for your course.**
+> **The course geometry is a PLACEHOLDER — and the PEP rules do not define it.**
+> The PEP26 Autonomy Division rules, the PEP26/PEP25 pages, and a competing
+> team's published white paper were all checked (see §4e). None state the
+> layout; it appears to be set on site. `analysis/courseGeometry.m` therefore
+> generates a parametric course of the correct total length (3217 m = 2.00
+> miles). Swap in the real waypoint list once ASNE briefs it and nothing
+> downstream changes. **The numbers below are illustrative of the boat, not
+> predictions for your course.**
 
 ### Result depends heavily on mark geometry — which is the useful finding
 
@@ -434,6 +437,78 @@ past the last mark with nothing to steer to. The 353 m was recorded at
 t = 605–644 s at X = 1908 m — well beyond the 1555 m end of the course. Progress
 is now tracked by advancing leg index, the way the guidance itself does.
 **The as-built rudder completes the oval course in every condition tested.**
+
+---
+
+## 4e. PEP26 Autonomy rules — what is actually specified
+
+Source: [PEP26 Autonomy Division rules
+(PDF)](https://www.navalengineers.org/Portals/16/PEP/2026/Signup/PEP_Rules2025-2026_Autonomy.pdf),
+ASNE/ONR. Event 14–16 April 2026, Portsmouth City Park, Portsmouth VA
+(Elizabeth River). Encoded in `params/params_competition.m`.
+
+### Compliance check against the current design
+
+| rule | limit | Osprey | |
+|---|---|---|---|
+| battery total voltage | ≤ 55.5 V | 12S: 44.4 V nominal, 50.4 V full | **OK** |
+| battery capacity | < 500 Ah | n/a | OK |
+| payload | 30 lb removable, team-supplied | 13.60 kg in `params_vessel` | **OK** |
+| race distance | 2 miles (3219 m) | completes in 405 s at 8 m/s | **OK** |
+| heat window | 55 min | uses **12%** of it | **OK** |
+
+### The scoring changes the design priorities
+
+- **10 points per completed half-mile** → 40 points for the full distance
+- **20 / 16 / 12 / 8 / 4** points for 1st through 5th
+- Race performance is 60 of 100 total (white paper 20, video 20)
+
+**Completing the distance is worth twice as much as winning it.** The required
+average speed to finish inside the heat is **0.98 m/s (2.2 mph)**.
+
+This is the quantitative justification for every conservative choice in this
+repo — clamping rudder travel at ventilation onset, limiting commanded yaw rate
+to the roll envelope, and slowing on a steering fault. It is also a strong
+argument against chasing the 35.8 m/s design speed, which §6 already shows to be
+roughly 4× beyond the installed power.
+
+### One rule contradicts an engineering instinct — Rule 21
+
+> *"Autonomous: Teams must demonstrate how the kill switch is engaged when
+> navigation information (like GPS data) is missing or corrupted."*
+
+The failure-mode study (§4c) found the boat rides out a 5 s GPS dropout
+comfortably — 2.42 m cross-track, dead-reckoning on the IMU — and I framed that
+as a good result. **Under the rules it is the wrong behaviour.** On loss or
+corruption of navigation data the craft must **kill**, not coast.
+
+Reframed correctly: the dead-reckoning result is evidence that **triggering the
+kill is safe** — the boat does not lurch when GPS goes away, so a kill can be
+armed on the first missed fix without risking an uncommanded manoeuvre. It is
+not a reason to design a coast-through.
+
+### Other verified requirements bearing on the build
+
+- Main power disconnect through which **all** propulsion current passes (Rule 7)
+- Fuse in the battery circuit for 24–55 V systems (Rule 9)
+- **Positive buoyancy — must float fully flooded** (Rule 19)
+- **Towing bridle across both hulls** for catamarans (Rule 13)
+- Boat-hook-reachable restraint structure for uncrewed craft (Rule 14)
+- 5-minute launch, ramp to open water, payload weighed dockside (Rule 11)
+- No pre-built motors or kits
+- **Demo video gate: 200 m or 2 min of open-water operation with a documented
+  thrust measurement, due 1 April 2026** — required to get a race slot
+
+### What the rules do NOT specify
+
+Course shape and waypoint coordinates; number, spacing and size of marks;
+turn angles and radii; waypoint arrival tolerance; number of laps; standoff
+distances; on-water speed limit; any station-keeping or loitering task.
+
+**Get the layout from ASNE (Education@NavalEngineers.org) or at the race-day
+briefing.** The single number that matters for the rudder decision is the
+**tightest required turn radius**, against the boat's ~20 m as-built / ~10 m
+recommended (§4d).
 
 ---
 
