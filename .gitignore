@@ -1,5 +1,10 @@
-﻿results/*.png
+# Intermediate simulation data. Large (~50 MB) and fully regenerable by
+# re-running the analyses, so it does not belong in version control.
 results/*.mat
+
+# Figures ARE tracked: they are the deliverables that results/summary.md
+# references, and they total under 1 MB.
+
 *.asv
 *.autosave
 slprj/
