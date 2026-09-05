@@ -28,8 +28,13 @@ The boat exists, floats, and has planed at 30 mph [T §6.1]. The hull is done an
 sound. What stopped it competing properly was not the hull — it was a **driveline
 failure that ended the race**, an **ESC failure before it**, and a **cooling
 system that never actually worked** [T §6.2, §7.2]. All three are in scope. On
-top of that, the boat has no autonomy yet: the simulation, control design and
-autopilot parameters exist, but nothing has run on hardware.
+top of that, autonomy is an open question rather than a blank sheet: the thesis
+budgets 5 lb for an **"Autonomous System"** and lists it as integrated into the
+electrical system, but places it *"outside the scope of this thesis"* [T §3.2].
+So hardware exists and is wired in, documented somewhere we have not found. The
+simulation, control design and autopilot parameters in this repo are separate
+work and have not run on that hardware. **[OPEN]** — resolve at the handover
+meeting, see `LEADS_BRIEF.md` Block D.
 
 **The three things that most constrain the next cycle:**
 
@@ -37,8 +42,11 @@ autopilot parameters exist, but nothing has run on hardware.
    the boat had to be towed. Nothing else matters if this repeats.
 2. **Powertrain headroom** — the boat drew 45 A when ~100 A was expected, and
    the 80 mph design point looks roughly 4× short on installed power [SIM].
-3. **Autonomy from zero** — RC control works; autonomous control has never run
-   on the water.
+3. **Autonomy, starting point unknown** — RC control works and is documented
+   [T §7.1]. An autonomous system is on the boat but excluded from the thesis,
+   so whether it has ever steered anything is **[OPEN]**. This is the single
+   biggest unknown going into the next cycle: it decides whether the work is
+   "integrate and tune" or "build from scratch".
 
 ---
 

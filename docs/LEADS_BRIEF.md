@@ -28,8 +28,17 @@ Three things happened at PEP26, all of them diagnosed by Aidan and Sean:
 | Motor controller | one ESC failed on the bench, traced to a battery discharge-rating mismatch | packs already replaced; **one ESC still needs replacing** |
 | Cooling | raw-water side never flowed reliably through the heat exchangers | **never fixed, never properly tested** |
 
-**It has never driven itself.** Every run so far has been a person on the bank
-with a radio.
+**There is an autonomous system on the boat already.** The thesis budgets 5 lb
+for it in the weight table and lists it as integrated into the electrical system
+alongside the RC gear — but then states plainly that it is *"outside the scope of
+this thesis"* [T §3.2]. So it exists, it is wired in, and **it was documented
+somewhere other than the thesis, or not at all.** Finding out which is the most
+important thing we get from Monday.
+
+What the thesis does confirm: the RC system worked, giving stable wireless
+control and telemetry on the water, and early runs without payload reached
+30 mph on plane [T §7.1]. Whether the autonomous system has ever actually
+steered the boat is not stated either way.
 
 ---
 
@@ -62,7 +71,8 @@ resistance implies ~10 kW effective at 35.8 m/s, so ~16 kW electrical at the
 the 45 A they measured**. This is independent of prop assumptions.
 
 **Rule 21 requires a kill on GPS loss.** The craft must stop when navigation
-data is missing or corrupted, and judges watch it demonstrated. Not implemented.
+data is missing or corrupted, and judges watch it demonstrated. Whether the
+existing autonomous system does this is unknown.
 
 ---
 
@@ -70,7 +80,7 @@ data is missing or corrupted, and judges watch it demonstrated. Not implemented.
 
 | # | Decision | Blocked on |
 |---|---|---|
-| D1 | **What speed are we actually building for?** | Sets the ESC, wiring, battery and cooling load. Everything electrical waits on this. |
+| D1 | **What speed are we actually building for?** | Sets the ESC, wiring, battery and cooling load. Everything electrical waits on this. The thesis already floats swapping to **LMT 7065** motors, which would need a new front support plate — so there is a defined upgrade path if we want one. |
 | D2 | Driveline retention scheme | Nothing. Someone needs to own it. |
 | D3 | Rudder span and stock position | One measurement (§4, Q3) |
 | D4 | Steering allocation architecture | ArduPilot drives a rudder **or** twin motors, not both. Needs a decision before any tuning. |
@@ -109,7 +119,8 @@ for winning.
 |---|---|
 | B1 | **CAD** — hull, molds, driveline, steering assembly. Native files, not just STEP. |
 | B2 | **The MATLAB scripts from Appendix A.1** — hull sizing, `aeroForce`, `calcWettedAreaIterative`. We reimplemented the hull model independently and want to cross-check. |
-| B3 | **Raw data logs** — the 30 mph run, ESC ripple logs, any temperature data. |
+| B3 | **Raw data logs** — the 30 mph run, ESC ripple logs, any temperature data. Specifically **the Castle Link logs**: the thesis notes Castle Link exposes temperature, RPM and power output, and that they never got to use it properly. Those logs would go a long way toward answering A5. |
+| B3b | **Anything from whoever built the autonomous system** — see Block D. |
 | B4 | **Are the hull molds still usable, and where are they?** |
 | B5 | **Spare parts inventory** — shafts, collets, props, connectors. What is on the shelf? |
 | B6 | **Anything they'd want back**, and **permission to keep their thesis in our public repo** (currently there with attribution; better to have it explicitly). |
@@ -125,18 +136,26 @@ for winning.
 | C5 | **What surprised you about race day?** | Open-ended and usually the most valuable question in the room. |
 | C6 | **What did the boats that beat you do differently?** | |
 
-### Block D — autonomy, since there is nothing written down
+### Block D — the autonomous system, which the thesis deliberately excludes
 
-| # | Question |
-|---|---|
-| D1 | **What is on the boat now for control?** Receiver, failsafe behaviour, any flight controller, any GPS? |
-| D2 | **Did you do any autonomy work at all**, even exploratory? |
-| D3 | **How does the boat behave at low speed?** Does it steer at all below planing, and how does it behave coming off the plane? |
-| D4 | **Does it have a natural turning bias**, and does it track straight hands-off? |
-| D5 | **What does it do in a hard turn** — does it hook, slide, or lose the sponson? |
+*The thesis budgets 5 lb for an "Autonomous System" and lists it as integrated
+into the electrical system, then says it is outside its scope. Everything below
+follows from that one sentence, and D1–D3 are close to Block A in priority.*
 
-*D3–D5 matter because the simulation is guessing at exactly these behaviours
-within a factor of five, and they have watched the boat do it.*
+| # | Question | Why |
+|---|---|---|
+| D1 | **What actually is the autonomous system?** Which flight controller, GPS, compass, telemetry radio, companion computer? | 5 lb is a substantial amount of hardware. We may already own most of what we need. |
+| D2 | **Who built it, and where is it documented?** Another student, another thesis, a repo, or nothing? | If there is a second document we should be reading it before Monday, not rediscovering it. |
+| D3 | **Has it ever driven the boat?** Even a straight line, even a single waypoint. | Decides whether next year is "integrate and tune" or "start from scratch". |
+| D4 | **Is it wired to the steering servo and throttle now**, and what happens on RC/autonomous handover? | Handover behaviour is a safety item and a competition requirement. |
+| D5 | **What is the RC failsafe today?** What does the boat do on signal loss? | Rule 21 needs a kill on bad navigation data; the RC failsafe is the obvious place to hang it. |
+| D6 | **How does the boat behave at low speed?** Does it steer at all below planing, and what happens coming off the plane? | |
+| D7 | **Does it track straight hands-off, or is there a turning bias?** | |
+| D8 | **What does it do in a hard turn** — hook, slide, lift a sponson? | |
+
+*D6–D8 matter because the simulation is guessing at exactly these behaviours
+within a factor of five, and they have stood on the bank watching the boat do
+them.*
 
 ### Block E — judgement, not data
 
@@ -148,7 +167,27 @@ within a factor of five, and they have watched the boat do it.*
 - **What is the biggest risk you think we are not seeing?**
 - **Is 80 mph realistic with this powertrain, or was that always aspirational?**
   *(Our numbers say roughly 4× short. Their view on this settles D1.)*
+- **You mention the LMT 7065 as a future motor. How seriously did you look at
+  it, and what made you stop short?**
 - **Would you do the autonomy division again, or race a different class?**
+
+---
+
+### Already answered — do not spend meeting time on these
+
+The thesis §7.2 solves these. Listed so nobody rediscovers them the hard way.
+
+- **Bending the brass stuffing tubes.** Kinking is easy and hard to repair, and
+  brass springback beats a jig on its own. Their fix: anneal the tubes in a
+  filament dryer at 85 °C while held in the jig. Print the jigs in **ASA**, not
+  PLA — PLA's glass transition is 60–65 °C and the jigs warp at annealing
+  temperature.
+- **Cooling, the direction of the fix.** Fit pumps to pull raw water rather than
+  relying on hydrodynamic pressure at speed. A4 is about *why* it failed, not
+  what to do instead.
+- **Tests they know were never done:** range testing (distance, time, speed and
+  power draw for a given pack), CG sensitivity, and sustained thermal. Worth
+  confirming none of these happened quietly after the thesis was submitted.
 
 ---
 
