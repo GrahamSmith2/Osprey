@@ -296,7 +296,190 @@ markers in `params/`.
 
 ---
 
-## 10. Where to start
+## 10. Running SITL with a virtual flight controller in Mission Planner
+
+This is the natural next step, and it is the only way to test the **real
+autopilot code** rather than the simplified cascade in `control/`. There are two
+levels of ambition and they cost very different amounts.
+
+### Level 1 — stock ArduRover SITL, no MATLAB (half a day)
+
+Get Mission Planner talking to a virtual Rover with ArduPilot's own built-in
+physics. The plant is a generic skid-steer ground rover, **not this boat**, so
+nothing it says about tracking performance is meaningful. What it *does* test is
+everything above the physics:
+
+- Mission upload from Mission Planner, waypoint sequencing, `WP_RADIUS` behaviour
+- Mode switching, arming, pre-arm checks, the failsafe tree
+- Parameter handling — you can load `results/autopilot_params.txt` and see what
+  ArduPilot rejects or clamps
+- **Rule 21 compliance**: the competition requires the kill switch to engage on
+  missing or corrupted navigation data. This is where you build and test that
+  logic (GPS failsafe → `FS_GCS_ENABLE`, `FS_EKF_ACTION`, or a Lua script).
+
+```bash
+# WSL or Linux; Mission Planner on Windows connects over UDP
+sim_vehicle.py -v Rover -f rover --console --map --out=udp:<windows-ip>:14550
+```
+
+Then in Mission Planner: *Connect → UDP → port 14550*.
+
+Honestly, **do this first regardless**. Most of the flight-code work is here,
+and none of it needs the MATLAB model.
+
+### Level 2 — this MATLAB model as ArduPilot's physics backend (1–2 weeks)
+
+ArduPilot SITL supports an **external physics backend over UDP using a JSON
+protocol**, which is exactly the hook needed. ArduPilot sends servo PWM; your
+simulator replies with vehicle state. That puts the real ArduRover navigation
+and steering controllers in the loop against the plant in `model/`.
+
+```bash
+sim_vehicle.py -v Rover -f rover --model JSON:127.0.0.1 --console --map
+```
+
+#### The protocol (verified against ArduPilot master)
+
+**ArduPilot → physics, UDP port 9002**, binary little-endian:
+
+```c
+uint16 magic = 18458;    // 29569 if SERVO_32_ENABLE = 1
+uint16 frame_rate;       // = SIM_RATE_HZ
+uint32 frame_count;
+uint16 pwm[16];          // microseconds, 1000-2000
+```
+
+**Physics → ArduPilot**, newline-delimited plain-text JSON. Required fields:
+
+| field | units | frame |
+|---|---|---|
+| `timestamp` | s | absolute physics time |
+| `imu.gyro` `[roll,pitch,yaw]` | rad/s | body |
+| `imu.accel_body` `[x,y,z]` | m/s² | body, **specific force** (includes −g) |
+| `position` `[n,e,d]` | m | earth NED |
+| `velocity` `[n,e,d]` | m/s | earth NED |
+| `attitude` `[roll,pitch,yaw]` | rad | — (or `quaternion`) |
+
+Optional and useful here: `windvane.direction` / `windvane.speed`,
+`velocity_wind`, `battery.voltage` / `battery.current`, `rc.rc_1`…`rc_12`.
+
+Minimal example ArduPilot accepts:
+
+```json
+{"timestamp":2500,"imu":{"gyro":[0,0,0],"accel_body":[0,0,0]},"position":[0,0,0],"attitude":[0,0,0],"velocity":[0,0,0]}
+```
+
+#### MATLAB-side networking — one gotcha, already resolved
+
+**`udpport` is Instrument Control Toolbox, and this machine does not have it**
+(`license('test','instr_control')` returns 0). The repo's no-toolbox rule holds,
+so use Java, which is in base MATLAB:
+
+```matlab
+sock = java.net.DatagramSocket(9002);
+sock.setSoTimeout(100);                       % ms
+buf  = zeros(1, 1024, 'int8');
+rx   = java.net.DatagramPacket(buf, 1024);
+sock.receive(rx);
+raw  = typecast(rx.getData(), 'uint8');
+hdr  = typecast(raw(1:8), 'uint16');          % hdr(1) = 18458 magic
+pwm  = typecast(raw(9:40), 'uint16');         % 16 channels
+```
+
+**Both halves of this are verified working on this machine** — a Java UDP
+loopback and the `typecast` decode of the servo packet (magic 18458,
+frame_rate 50) were tested directly. No toolbox needed.
+
+#### The real work: impedance mismatches
+
+The protocol is the easy part. These are what will actually take the time:
+
+1. **This is a 3-DOF model; ArduPilot expects 6-DOF state.** There is no roll or
+   pitch anywhere in `eom3dof`. Simplest honest approach: send
+   `attitude = [0, 0, psi]` and accept that SITL cannot see the blow-over /
+   sponson-unloading failure modes — which `model/rollEnvelope.m` covers
+   separately as a quasi-static check. Do **not** synthesise a fake roll unless
+   you are prepared to defend it.
+
+2. **`accel_body` is specific force, not acceleration.** For a level boat:
+
+   ```
+   accel_body = [ udot - v*r ,  vdot + u*r ,  -9.80665 ]
+   ```
+
+   `udot`/`vdot` come straight out of `eom3dof`. Getting the −g wrong is the
+   classic way to make ArduPilot's EKF diverge on the first arm.
+
+3. **Frame mapping is direct but check it.** The repo already uses X = north,
+   Y = east, `psi` clockwise from north, z down. So
+   `position = [X, Y, 0]`, `velocity = [Xdot, Ydot, 0]`, `gyro = [0, 0, r]`.
+
+4. **PWM → physical inputs.** Decode per Rover's `SERVOn_FUNCTION`. Default is
+   `SERVO1_FUNCTION = 26` (GroundSteering) and `SERVO3_FUNCTION = 70`
+   (Throttle); map 1000–2000 µs linearly to `±P.R.delta_max` and to
+   ±full thrust.
+
+5. **⚠ ArduPilot has no equivalent of `control/allocate.m`.** The repo's
+   allocator sends the yaw demand to the rudder first and overflows the
+   shortfall into differential thrust — that is what rescues low-speed control
+   and (below 5 m/s) a rudder jam. Rover gives you *either* a steering servo
+   plus common throttle, *or* skid steering (`SERVO1_FUNCTION = 73`
+   ThrottleLeft, `SERVO3_FUNCTION = 74` ThrottleRight) — not a blended
+   rudder-plus-differential allocator. **Reproducing the allocator needs a Lua
+   script or a custom mixer, and this is the single biggest gap between the
+   simulated controller and what ArduPilot will actually do.** Decide the
+   architecture before tuning anything.
+
+6. **Lockstep saves you.** ArduPilot SITL waits for the JSON reply, so MATLAB
+   does **not** need to run in real time — a slow physics step just slows the
+   simulated clock. Set `SIM_RATE_HZ` at or above the vehicle loop rate (Rover
+   defaults to 50 Hz, which matches this repo's `dt = 0.02` exactly). Use
+   `SIM_SPEEDUP` if you want it faster than wall-clock.
+
+7. **Restructure the loop, don't reuse `simOsprey`.** `simOsprey` owns its own
+   time loop and calls a controller. Under SITL the *controller owns the clock*
+   and calls you. Write a thin `sitlBridge.m` that holds `x` and `P`, and on
+   each received packet does one RK4 step of `eom3def` and replies. Keep the
+   ventilation latch and backlash handling from `simOsprey` — they are stepper
+   state and will be silently lost otherwise.
+
+#### What Level 2 buys you that the MATLAB cascade cannot
+
+- The **real ArduPilot L1 navigation controller**, not the LOS guidance in
+  `control/losGuidance.m`
+- Whether the **`1/U²` steering-gain schedule** can actually be implemented on
+  Rover, which has no native gain scheduling — this is where you test the Lua
+  script
+- Real mission execution: four 0.5-mile laps as an actual waypoint mission, with
+  real waypoint acceptance behaviour
+- Failsafe interaction with the Rule 21 GPS-loss kill
+
+#### What it still will not tell you
+
+Nothing about roll, blow-over or sponson unloading (no roll DOF). Nothing about
+real sensor error characteristics — ArduPilot SITL synthesises its own sensors
+from the truth state you send, so `sensors/sensorModel.m` is bypassed entirely.
+And nothing about the hull derivatives, which remain uncertain by ±5× no matter
+whose controller is driving.
+
+#### Effort
+
+| task | estimate |
+|---|---|
+| Level 1: stock SITL + Mission Planner + mission upload | 0.5 day |
+| UDP bridge, packet decode, JSON encode | 1 day |
+| `sitlBridge.m` — state ownership, RK4 step, latch/backlash carry-over | 1–2 days |
+| PWM mapping and Rover servo-function configuration | 0.5 day |
+| Allocator architecture decision + Lua mixer (item 5) | 2–4 days |
+| Debugging EKF convergence, frames and units | 2–3 days |
+
+ArduPilot ships reference implementations in `libraries/SITL/examples/JSON/`
+(Python and C++). Crib the Python one — it is the closest structural match to
+what `sitlBridge.m` needs to do.
+
+---
+
+## 11. Where to start
 
 1. Run `run_tests`. If anything fails, stop and fix that first.
 2. Read `results/summary.md` — especially §2 (which carries a **superseded**
@@ -305,3 +488,11 @@ markers in `params/`.
    with its reason and its expected error direction.
 4. Chase Tier 1 of §9. Items 1 and 2 are twenty minutes with callipers and they
    decide whether the existing servo is adequate.
+5. Stand up **Level 1 SITL** (§10). It is half a day, needs nothing from the
+   MATLAB model, and most of the flight-code work lives there — including the
+   Rule 21 GPS-loss kill, which is a competition requirement and is currently
+   not implemented anywhere.
+
+If you only do two things: **measure the rudder stock position** (§9 item 1) and
+**decide the rudder-vs-differential-thrust allocation architecture** (§10 item
+5). Those two block more downstream work than anything else in this repo.
