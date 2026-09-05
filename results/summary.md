@@ -435,6 +435,32 @@ So the recommendation stands, with a corrected justification:
 (p95 figures are noisy at n = 60 — a single draw sets them — so median and
 saturation fraction are the trustworthy statistics here.)
 
+### Error does NOT accumulate across the four laps
+
+The Monte Carlo runs one lap, on the argument that a circle is homogeneous. That
+argument is blind to anything that *accumulates* — heading-integrator drift
+against a standing disturbance, gyro bias random walk, or a slow radial bias
+from imperfect crab correction. All would be invisible on lap 1 and obvious on
+lap 4, so it was checked directly (`analysis/lapAccumulation.m`, 12 LHS draws,
+full 4 laps, 15 kt crosswind):
+
+| | lap 1 | lap 2 | lap 3 | lap 4 | growth |
+|---|---|---|---|---|---|
+| as-built, RMS | 0.680 | 0.996 | 0.995 | 1.040 | 1.53× |
+| recommended, RMS | 0.607 | 0.908 | 0.943 | 0.921 | 1.52× |
+| as-built, max | 1.799 | 2.348 | 1.591 | 1.863 | 1.04× |
+| recommended, max | 1.416 | 1.606 | 1.513 | 1.665 | 1.18× |
+| as-built, mean bias | −0.357 | −0.814 | −0.863 | −0.834 | — |
+
+**All of the growth is lap 1 → lap 2, and it is flat thereafter** (RMS steps:
++0.317, −0.002, +0.045). That is a one-lap settling transient as the boat
+establishes its steady crab angle against the wind, after which it holds a
+constant ~0.85 m radial bias inside the circle. **Nothing accumulates.** 11 of
+12 draws completed all four laps for both rudders.
+
+The steady bias sitting *inside* the circle is worth noting for race day: the
+boat consistently cuts slightly inside the commanded radius under crosswind.
+
 ### For comparison: placeholder geometries, now superseded
 
 Retained because they bound what *would* have mattered had the course had sharp
