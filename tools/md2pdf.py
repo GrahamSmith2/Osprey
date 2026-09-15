@@ -73,9 +73,20 @@ tbody tr:nth-child(even) td { background: #f6f8fa; }
 td:first-child, th:first-child { padding-left: 0; }
 td:last-child, th:last-child { padding-right: 0; }
 .meta { font-size: 8.5pt; color: #5b6773; margin: 0 0 13pt; }
+figure { margin: 10pt 0 12pt; break-inside: avoid; text-align: center; }
+figure img { max-width: 100%; max-height: 95mm; height: auto; border: .5pt solid #d5dce2; }
+figcaption {
+  font-family: "Segoe UI", Arial, sans-serif; font-size: 8.3pt; color: #5b6773;
+  margin-top: 4pt; text-align: left;
+}
+p > figure, p figure { display: block; }
 """
 
 INLINE = [
+    # images first, so the link rule below does not eat the ![...](...) form
+    (re.compile(r"!\[([^\]]*)\]\(([^)]+)\)"),
+        lambda m: f'<figure><img src="{m.group(2)}" alt="{m.group(1)}">'
+                  f'<figcaption>{m.group(1)}</figcaption></figure>'),
     (re.compile(r"`([^`]+)`"),                lambda m: f"<code>{html.escape(m.group(1))}</code>"),
     (re.compile(r"\*\*([^*]+)\*\*"),          lambda m: f"<strong>{m.group(1)}</strong>"),
     (re.compile(r"(?<![*\w])\*([^*\n]+)\*"),  lambda m: f"<em>{m.group(1)}</em>"),
@@ -205,9 +216,22 @@ def main():
     if m:
         title = html.escape(re.sub(r"[*`]", "", m.group(1)))
 
+    body = convert(md)
+
+    # Image paths in the Markdown are relative to the .md file; Edge is handed
+    # a temp HTML file somewhere else, so resolve them to absolute file:// URLs.
+    base = os.path.dirname(src)
+    def _abs(m):
+        p = m.group(1)
+        if re.match(r"^(https?:|file:|data:)", p):
+            return m.group(0)
+        full = os.path.normpath(os.path.join(base, p)).replace("\\", "/")
+        return f'src="file:///{full}"'
+    body = re.sub(r'src="([^"]+)"', _abs, body)
+
     page = (f"<!doctype html><html><head><meta charset='utf-8'>"
             f"<title>{title}</title><style>{CSS}</style></head>"
-            f"<body>{convert(md)}</body></html>")
+            f"<body>{body}</body></html>")
 
     tmp = os.path.join(tempfile.gettempdir(), "md2pdf_tmp.html")
     open(tmp, "w", encoding="utf-8").write(page)
