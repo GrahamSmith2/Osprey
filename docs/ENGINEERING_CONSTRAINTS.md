@@ -128,9 +128,19 @@ their list.
 | Aspect ratio | 2.5 | **4.2** |
 | Total blade length | 5.9 in | **~8 in** (same mount, 2 in longer below) |
 | Stock position | unknown — **measure** | **20–25% chord aft of LE** |
+| **Max mechanical deflection** | ±35° **assumed** — not stated in the thesis; set by the pull-pull horn and mount tabs. **Measure on the boat.** | same linkage, same stop |
+| **Max useful deflection** | ±10° — ventilation onset (P2) | **±10°. Limit the autopilot here, not at the stop.** Past onset the blade gives *less* moment, not more. |
+| **Servo** | AGFRC A81FHM HV, **74 kg·cm stall at 8.4 V**, BEC-fed from one ESC `[T §3.4.1]` | **Same servo is sufficient** provided the stock is at 20–25% c — see 5.4. At a leading-edge stock it is exceeded above ~55 mph. |
 | Authority `A_r·CL_α` | 1.0× | **2.2×** |
 | Steady turn radius, full useful rudder | ~20 m (9.5 LOA) | **~11.5 m (5.4 LOA)** |
 | Rudder drag at 10 m/s, full deflection | 2.5% of hull | ~4% of hull |
+
+**Why 10° and not 35°.** The linkage can reach 35°, but the blade ventilates at
+about 10° and the yaw moment then *falls* — 64 N·m at 10° to 39 N·m at 12° at
+30 mph, latched until the blade unloads below ~6° `[SIM]`. Commanding past onset
+hands the controller a negative plant gain. The autopilot's steering output
+should be scaled so that full stick is ±10°; the remaining travel is reserve for
+a manual recovery, not something the loop should ever see.
 
 Going from aspect ratio 2.5 to 4.2 is the steepest part of the lift-slope
 curve, which is why 2 in of span buys 2.2× rather than the 1.7× the area ratio
@@ -189,6 +199,7 @@ at the leading edge only because the boat never went faster than 30 mph.
 | U3 | Tiller arm radius — scales servo torque linearly | Callipers, or ask Monday (A3) |
 | U4 | Ventilation onset angle for this blade | Turn circles at 5° / 10° / 15° / 20° |
 | U5 | Draft on the trailer and at the ramp with a blade 2 in longer | Measure before the first launch |
+| U6 | **Mechanical deflection limit of the linkage** — the 35° in the model is assumed | Swing the rudder stop-to-stop with a protractor. Ten seconds. |
 
 ---
 
