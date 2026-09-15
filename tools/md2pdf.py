@@ -83,9 +83,10 @@ p > figure, p figure { display: block; }
 """
 
 INLINE = [
-    # images first, so the link rule below does not eat the ![...](...) form
-    (re.compile(r"!\[([^\]]*)\]\(([^)]+)\)"),
-        lambda m: f'<figure><img src="{m.group(2)}" alt="{m.group(1)}">'
+    # images first, so the link rule below does not eat the ![...](...) form.
+    # A caption ending in "|right" floats the figure to the right (compact mode).
+    (re.compile(r"!\[([^\]|]*)(?:\|(right))?\]\(([^)]+)\)"),
+        lambda m: f'<figure class="{m.group(2) or ""}"><img src="{m.group(3)}" alt="{m.group(1)}">'
                   f'<figcaption>{m.group(1)}</figcaption></figure>'),
     (re.compile(r"`([^`]+)`"),                lambda m: f"<code>{html.escape(m.group(1))}</code>"),
     (re.compile(r"\*\*([^*]+)\*\*"),          lambda m: f"<strong>{m.group(1)}</strong>"),
@@ -200,11 +201,32 @@ def convert(md):
     return "\n".join(out)
 
 
+COMPACT_CSS = """
+@page { margin: 12mm 13mm 12mm 13mm; }
+body { font-size: 9pt; line-height: 1.38; }
+h1 { font-size: 16pt; margin-bottom: 2pt; }
+h2 { font-size: 10.5pt; margin: 9pt 0 4pt; padding-bottom: 2pt; }
+p { margin: 0 0 4pt; }
+ul, ol { margin: 0 0 4pt; padding-left: 13pt; } li { margin-bottom: 1pt; }
+table { font-size: 8.3pt; margin: 4pt 0 7pt; }
+th { font-size: 7.2pt; padding: 3pt 5pt 2pt; } td { padding: 2.5pt 5pt; }
+blockquote { margin: 5pt 0; padding: 4pt 8pt; }
+figure { margin: 4pt 0 6pt; }
+figure.right { float: right; width: 34%; margin: 0 0 4pt 10pt; }
+figure.right img { max-height: 44mm; width: auto; }
+h2 { clear: both; }
+figcaption { font-size: 7.4pt; margin-top: 2pt; }
+hr { margin: 7pt 0; }
+"""
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
-    src = os.path.abspath(sys.argv[1])
-    dst = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else os.path.splitext(src)[0] + ".pdf"
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    compact = "--compact" in sys.argv
+    src = os.path.abspath(args[0])
+    dst = os.path.abspath(args[1]) if len(args) > 1 else os.path.splitext(src)[0] + ".pdf"
 
     edge = next((p for p in EDGE_CANDIDATES if os.path.exists(p)), None)
     if not edge:
@@ -229,8 +251,9 @@ def main():
         return f'src="file:///{full}"'
     body = re.sub(r'src="([^"]+)"', _abs, body)
 
+    css = CSS + (COMPACT_CSS if compact else "")
     page = (f"<!doctype html><html><head><meta charset='utf-8'>"
-            f"<title>{title}</title><style>{CSS}</style></head>"
+            f"<title>{title}</title><style>{css}</style></head>"
             f"<body>{body}</body></html>")
 
     tmp = os.path.join(tempfile.gettempdir(), "md2pdf_tmp.html")
