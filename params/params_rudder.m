@@ -14,8 +14,14 @@ function R = params_rudder()
 
 %% ---- Baseline blade geometry ------------------------------------------
 R.span_total = 0.150;        % [m]  full blade span
-R.sub_frac   = 0.50;         % [-]  fraction submerged at planing trim (VERIFY)
-R.h_sub      = R.span_total * R.sub_frac;  % [m] = 0.075 submerged span
+% Submerged depth at planing trim. Originally assumed 50% (0.075 m) and flagged
+% VERIFY. The team reports about 4 in in the water (2026-09-15), i.e. ~0.10 m,
+% or 68% of the blade. That makes the as-built rudder ~1.6x more effective than
+% the earlier baseline. Results in results/summary.md that compare "as-built"
+% against the 150 mm recommendation were run at 0.075 m and overstate the gap;
+% the recommendation itself is unchanged.
+R.h_sub      = 4 * 0.0254;   % [m] = 0.1016, per the team
+R.sub_frac   = R.h_sub / R.span_total;     % [-] = 0.68
 R.c          = 0.030;        % [m]  chord
 R.A_r        = R.h_sub * R.c;              % [m^2] = 2.25e-3 wetted area
 R.AR_geom    = R.h_sub / R.c;              % [-]   = 2.5 geometric aspect ratio
