@@ -24,7 +24,7 @@ Rudder authority grows with the square of speed while hull damping grows roughly
 
 ### 3. Full telemetry and control commands that protect the craft
 
-The Risk category carries more weight this year, and both of last cycle's failures were diagnosable from data that nobody was reading at the time. Every run will now be logged end to end, and the controller will refuse commands that hurt the boat: a kill on loss or corruption of navigation data as the rules require, rudder travel limited to ventilation onset rather than the mechanical stop, a commanded yaw-rate ceiling from a roll and blow-over envelope, and an automatic speed reduction on a steering fault. Each of those limits comes from an analysis already completed — below about 5 m/s, for instance, the twin motors regain control of a rudder jam that is unrecoverable at 18.
+Both of last cycle's failures were diagnosable from data nobody was reading at the time, and the cooling loop has never been shown to flow reliably. We are integrating temperature sensors through the cooling system — at both motors, both controllers and across the heat exchanger — logged every run alongside Castle Link's own data, so that the first sustained thermal test this boat has had produces numbers rather than guesses. The controller will also refuse commands that hurt the craft: a kill on loss of navigation data as the rules require, rudder travel capped at ventilation onset, a yaw-rate ceiling from a roll and blow-over envelope, and an automatic speed reduction on a steering fault, since below about 5 m/s the twin motors regain control of a rudder jam that is unrecoverable at 18.
 
 ---
 
