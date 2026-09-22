@@ -1,0 +1,36 @@
+﻿Princeton Electric Speedboating — PEP27 Budget
+Craft: Osprey	Division: Uncrewed — Autonomy	Returning national team	PEP funding: 5000
+
+Form Line	Item	Expected Purchase	Qty	Unit Cost	PEP	Sponsor	Price Source
+Hull	Resin, carbon patch, sealant, fasteners	Oct 2026	1	300	=D5*E5	0	estimate
+Energy Storage	Lectron Pro 22.2V 5200mAh 100C, EC5	Nov 2026	8	139.99	=D6*E6	0	quoted
+Motor(s)	Castle 2535 680Kv	Oct 2026	2	349.95	0	=D7*E7	quoted
+Control System	Castle Hydra Cobra 5 HV 12S marine ESC	Oct 2026	2	389.95	0	=D8*E8	quoted
+Control System	Autopilot, GPS, telemetry radio	Nov 2026	1	450	=D9*E9	0	estimate
+Control System	Rudder blade, mount, steering servo spare	Dec 2026	1	200	=D10*E10	0	estimate
+Propeller(s)	Graupner K-series test range, ~15 pitch/dia combinations	Oct 2026	1	200	=D11*E11	0	estimate
+Other	Raw-water pumps	Oct 2026	2	40	=D12*E12	0	estimate
+Other	Driveline spares: collets, flex shaft, stuffing tube, bearings	Oct 2026	1	250	=D13*E13	0	estimate
+Other	Wiring, QS8 connectors, fusing	Nov 2026	1	150	=D14*E14	0	estimate
+Other	Flow and temperature instrumentation	Nov 2026	1	100	=D15*E15	0	estimate
+Other	Shop consumables	Oct-Dec 2026	1	120	=D16*E16	0	estimate
+Other	Contingency: back-order slip, test-day breakage	as needed	1	630	=D17*E17	0	estimate
+
+SUBTOTAL					=SUM(F5:F17)	=SUM(G5:G17)
+Travel to Event	Van, fuel, two nights — Princeton NJ to Portsmouth VA	Apr 2027	1	1400	=D20*E20	0	estimate
+TOTAL					=F19+F20	=G19+G20
+
+Total program value (PEP + sponsor)					=F21+G21
+Sponsor shortfall if Castle declines					=G21-(D6/2*E6)-E17		half the pack buy + contingency, balance from club funds
+
+WHAT TO WRITE ON THE PEP27 FORM
+Needed items	Expected Date of Purchase	Estimated Cost
+Hull (purchase or creation)	Oct 2026	=F5
+Energy Storage	Nov 2026	=F6
+Motor(s)	Oct 2026	=G7
+Control System	Oct-Dec 2026	=G8+F9+F10
+Propeller(s)	Oct 2026	=F11
+Other: Wiring, Gears, etc.	Oct-Dec 2026	=SUM(F12:F17)
+Subtotal		=SUM(C28:C33)
+Travel to Event	Apr 2027	=F20
+Total		=C34+C35
