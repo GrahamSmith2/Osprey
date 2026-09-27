@@ -15,8 +15,8 @@
 - **[OPEN]** — not established by either. Needs a decision or a measurement.
 
 > **Timing note.** The thesis targets **PEP26** (14–16 April 2026), which has
-> already run. The next cycle is **PEP27**. The rules encoded in
-> `params/params_competition.m` are the *2025–2026* Autonomy Division rules —
+> already run. The next cycle is **PEP27**. The rules summarised in
+> `results/summary.md` §4e are the *2025–2026* Autonomy Division rules —
 > **re-download the PEP27 rules before relying on any of them.** Historically
 > ASNE changes divisions year to year.
 
@@ -90,7 +90,7 @@ should not assume a steering symptom means a steering cause.
 
 ![Steering components](figures/steering_components.png)
 
-**[SIM]** Full analysis in `results/summary.md` §1–2 and §4d. Headline:
+**[SIM]** Full analysis in `results/summary.md` §1–4d. Headline:
 
 **Size on SPAN, not area.** Rudder authority is the product `A_r · CL_α`.
 Growing area at fixed span grows the chord, which collapses aspect ratio and
@@ -98,31 +98,33 @@ Growing area at fixed span grows the chord, which collapses aspect ratio and
 
 | change | AR | CL_α | `A_r·CL_α` |
 |---|---|---|---|
-| 30× area, span fixed | 0.08 | 0.124 | **1.32×** |
-| 3.3× area **via span** | 8.33 | 4.544 | **5.36×** |
+| 30× area, span fixed | 0.08 | 0.13 | **1.32×** |
+| 3.3× area **via span** | 8.38 | 4.55 | **5.26×** |
+| **chosen: 45 mm × 5 in** | 2.82 | 3.03 | **2.66×** |
 
-**Recommendation: 150–180 mm submerged span at the existing 30 mm chord**
-(2.0–2.4× the as-built area), **with the stock balanced at 15–25% chord.**
+**Decided [TEAM, 2026-09-26]: 45 mm chord × 5 in (127 mm) submerged**, same
+mount, blade extended 2 in downward, **stock balanced at 20–25% chord**. Spec
+and servo check in `docs/ENGINEERING_CONSTRAINTS.md`. (The earlier
+recommendation was 150–180 mm of span at the existing 30 mm chord; the chosen
+blade trades some of that depth for chord, which buys 23% more authority for
+51% more drag and 1.8× the hinge moment.)
 
-**Why — and this changed twice, so read the reasoning not just the number.**
-On the two-mark oval the boat does not *need* the extra rudder for turning: the
-speed loop has thrust margin and powers back through every rounding, so race
-time is **402.5 s regardless of rudder size or rounding radius** [SIM]. The
-argument is **margin**, not speed:
+**Why a bigger rudder — and this changed twice, so read the reasoning.** The
+nominal boat runs the 50 mph race with either blade. The argument is the
+**uncertainty**: across the plausible hull-parameter range, 63% of boats with
+the old blade fail the 50 mph race against 38% with the new one
+(`results/summary.md` §4b):
 
-| rudder | passes ≤5 m track spec | unstable | saturated |
-|---|---|---|---|
-| as-built 75 mm | 65% | 13% | **41% of the lap** |
-| 150 mm | 83% | 8% | **0%** |
+| rudder | pass | lost or timed out |
+|---|---|---|
+| as-built 30 mm × 3 in | 23% | 63% |
+| chosen 45 mm × 5 in | 48% | 38% |
 
-Across the plausible hull-parameter range the as-built blade spends 41% of a lap
-pinned at its usable deflection limit. It is not short of turning power; it is
-short of headroom for disturbance rejection.
-
-**Also implement:** limit servo travel to **±10° (ventilation onset), not ±35°**.
-Past onset the blade ventilates and yaw moment *falls* with increasing
-deflection (64.4 → 38.7 N·m at 13.4 m/s), latched until it unloads below 6°.
-Commanding into that region hands the controller a negative plant gain [SIM].
+**Also implemented:** the autopilot clamps the rudder at **±10° (ventilation
+onset), not ±35°**. Past onset the blade ventilates and yaw moment *falls* with
+increasing deflection (64.4 → 38.7 N·m at 13.4 m/s for the old blade), latched
+until it unloads below 6°. Commanding into that region hands the controller a
+negative plant gain [SIM].
 
 ## 1.3 Stuffing tube manufacturing
 
@@ -150,7 +152,7 @@ with reasoning in `docs/HANDOFF.md` §9.
 
 | # | Measure | Why | Effort |
 |---|---|---|---|
-| M7 | **Rudder stock chordwise position** | Decides whether the servo spec closes *at all*: 45 kg·cm at the leading edge vs ~0 balanced. If the stock sits *aft* of the centre of pressure the blade is overbalanced and will slam to the stop. | **10 min, callipers** |
+| M7 | **Rudder stock chordwise position** | Decides whether the servo spec closes *at all*: ~103 kg·cm at the leading edge (stall is 74) vs ~0 balanced, new blade at 50 mph. If the stock sits *aft* of the centre of pressure the blade is overbalanced and will slam to the stop. | **10 min, callipers** |
 | M8 | **Rudder tiller arm radius** | Scales required servo torque **linearly**. Never recorded. | 10 min |
 | M9 | **Yaw inertia `Izz`** | Largest single unknown in the model (swept ±50%), likely under-estimated for a catamaran. | 1 h, bifilar pendulum |
 | M10 | **Submerged rudder span at planing trim** | Assumed 50% of the blade. This is *the* sizing variable. | 1 run + photo |
@@ -276,46 +278,50 @@ exactly that.
 
 ## 3.1 What already exists
 
-**[SIM]** A complete 3-DOF manoeuvring simulation and control design, in this
-repo. 44 automated checks, all passing. Full detail in `docs/HANDOFF.md`.
+**[SIM]** A complete 3-DOF manoeuvring simulation in Python (`python/`), and an
+autopilot written as an **ArduPilot Lua script** that the simulation flies. 49
+automated checks, all passing. Full detail in `docs/HANDOFF.md`.
 
-- Hull, rudder, propulsion, sensor and actuator models — validated to ~6%
+- Hull, rudder, propulsion, sensor and actuator models — validated to ~3%
   against the logged 13.4 m/s planing run
-- Full control cascade: LOS guidance → heading PID → yaw-rate PI → allocator
+- `controllers/oval_autopilot.lua`: LOS guidance → heading PI → yaw-rate PI in
+  moment units → **motors below 10 mph, rudder above** → speed PI → Rule 21 kill
 - Nomoto system ID, derived gain schedule (**not** grid-searched)
-- Monte Carlo robustness, failure modes, full 2-mile course simulation
-- **`results/autopilot_params.txt`** — ArduPilot Rover parameters, ready to load
+- Monte Carlo robustness, failure modes, full 2-mile race at 50 mph from a
+  standing start (`python -m osprey report`)
 
-**Never run on hardware.** Every number is conditional on hull coefficients that
-are uncertain by ±5×.
+**Never run on hardware or in ArduPilot SITL.** Every number is conditional on
+hull coefficients that are uncertain by ±5×.
 
-## 3.2 Rule 21 — GPS-loss kill (**competition requirement, not implemented**)
+## 3.2 Rule 21 — GPS-loss kill (**competition requirement; in the script, not yet on hardware**)
 
 The PEP Autonomy rules state:
 
 > *"Teams must demonstrate how the kill switch is engaged when navigation
 > information (like GPS data) is missing or corrupted."*
 
-**[SIM]** The simulation shows the boat rides out a 5 s GPS dropout comfortably
-(2.42 m cross-track, dead-reckoning on the IMU). **Under the rules that is the
-wrong behaviour** — it must *kill*, not coast. Reframed correctly: the
-dead-reckoning result is evidence that **triggering the kill is safe**, because
-the boat does not lurch when GPS goes away. It is not a reason to coast through.
+**[SIM]** The Lua autopilot disarms 500 ms after the GPS fix is lost; in the
+simulation that is 10.5 s for a loss at 10.0 s, with the boat 5 m off the line.
+The MATLAB version dead-reckoned through a dropout instead, which **the rules
+forbid** — it must *kill*, not coast. The dead-reckoning result is still useful:
+it shows **triggering the kill is safe**, because the boat does not lurch when
+GPS goes away.
 
-This is a **demonstrable** requirement — judges watch it. Build it early.
+This is a **demonstrable** requirement — judges watch it. Prove it on SITL,
+then on the boat.
 
 ## 3.3 Autonomy stack — the actual work
 
 | # | Item | Notes |
 |---|---|---|
-| S1 | **Stand up ArduPilot Rover SITL + Mission Planner** | Half a day, needs no hardware and no MATLAB. Most of the flight-code work lives here. `docs/HANDOFF.md` §10 has the full recipe. |
-| S2 | **Implement and demo the Rule 21 GPS-loss kill** | §3.2. Competition-gating. |
-| S3 | **Decide the control allocation architecture** | **The single biggest software decision.** ArduPilot Rover offers *either* a steering servo plus common throttle, *or* skid steering — **not** the blended rudder-first-then-differential-thrust allocator the simulation uses. That allocator is what gives low-speed control authority and makes a rudder jam survivable below 5 m/s. Reproducing it needs Lua or a custom mixer. **[OPEN]** |
-| S4 | **Implement the `1/U²` steering gain schedule** | Rover has **no native gain scheduling**. Options: Lua script, hold a constant cruise speed, or accept ~3× worse low-speed overshoot. Table is in `autopilot_params.txt`. |
-| S5 | **Waypoint mission for the two-mark oval** | Marks 0.25 mile apart, ~3.5 laps for 2 miles. See §4 for a number that needs reconciling. |
-| S6 | **Steering-fault response mode** | **[SIM]** A jammed rudder is unrecoverable at 8 m/s but fully recoverable at ≤5 m/s — a jammed rudder's moment grows as `u²` while differential thrust is speed-independent, so **slowing down is the recovery action**. Needs a detector (persistent yaw-rate error with unsaturated rudder command) and the authority to cut speed independently of the mission. |
+| S1 | **Stand up ArduPilot Rover SITL + Mission Planner, running the Lua script** | About a day, needs no hardware. Most of the flight-code work lives here. `docs/HANDOFF.md` §10 has the full recipe; `python/LUA_API.md` lists what to change in the script. |
+| S2 | **Demo the Rule 21 GPS-loss kill** | §3.2. In the script; needs proving on SITL and the boat. Competition-gating. |
+| S3 | **Control allocation architecture** | **Decided** [TEAM, Sep 2026]: differential thrust only below 10 mph, rudder only above, with a 1 mph hysteresis band. Implemented in the Lua script, which drives the servo outputs directly, so ArduPilot Rover's own steering modes are not needed. |
+| S4 | **Steering gain schedule** | **Done in the script**: the rate loop works in moment units, so its gain is speed-invariant and the `1/U²` conversion to rudder angle uses measured speed. |
+| S5 | **Waypoint mission for the two-mark oval** | Marks 0.25 mile apart, ~3.35 laps for 2 miles. The script takes waypoints from `sim:waypoints()` in simulation; on the boat, read the mission. See §4 for a number that needs reconciling. |
+| S6 | **Steering-fault response mode** | **[SIM]** Above 10 mph the motors never steer, so a jammed rudder there loses the boat. The motors can out-muscle a rudder jammed at 10° below ~22 mph, so the recovery is: **detect** (persistent yaw-rate error with the rudder not saturated), **slow below 10 mph**, **steer on the motors**. Not implemented. |
 | S7 | **Telemetry logging** | Log everything from the first run. See §3.4. |
-| S8 | **Optional: MATLAB model as SITL physics backend** | 1–2 weeks. Puts the real ArduPilot controllers against the real plant. `docs/HANDOFF.md` §10, Level 2. |
+| S8 | **Optional: the Python model as SITL physics backend** | About a week. Puts the real ArduPilot firmware and the script against this plant. `docs/HANDOFF.md` §10, Level 2. |
 
 ## 3.4 What information would most help the simulation
 
@@ -355,21 +361,21 @@ load, so it should be made deliberately and early.**
 - Theoretical max RPM at 50.4 V and 680 Kv: **34 272**
 - **[SIM]** Independent of prop assumptions: 35.8 m/s (80 mph) needs ~281 N
   thrust ⇒ ~10.1 kW effective ⇒ **~16 kW electrical** at the 63% chain
-  efficiency implied by the team's own log ⇒ **~180 A per motor**. The
-  powertrain looks **~4× short** of the 80 mph design point.
+  efficiency implied by the team's own log ⇒ **~180 A per motor**. 50 mph needs
+  ~336 N ⇒ ~7.5 kW effective ⇒ ~12 kW electrical ⇒ **~135 A per motor**. The
+  prop as logged tops out at **28.8 mph** loaded.
 
-**[OPEN] — Decide:**
+**Decided [TEAM, Sep 2026]: race at a 50 mph cruise.** That sets the ESC,
+wiring, battery and cooling targets above, and needs a prop matched to 50 mph.
 
-- **(a) Chase 80 mph.** Requires a different propeller, a much larger ESC, far
-  heavier wiring, and a cooling system that genuinely works. Expensive, and
-  above ~20 m/s the rudder model is void anyway (cavitation).
-- **(b) Optimise for reliably finishing.** **The scoring supports this**:
-  **10 points per completed half-mile (40 total) vs 20 for winning outright** —
-  finishing is worth **twice** as much as being fastest, and the average speed
-  needed to finish inside a 55-minute heat is **0.98 m/s** [SIM, rules].
-
-**Recommendation (b)**, and note that the simulation's conservative choices
-already assume it.
+The earlier recommendation here was to optimise for reliably finishing, because
+**the scoring supports it**: **10 points per completed half-mile (40 total) vs
+20 for winning outright**, and the average speed needed to finish inside a
+55-minute heat is **0.98 m/s** [SIM, rules]. The simulation's answer to "does
+50 mph cost reliability?" is: **somewhat, not decisively** — across the hull
+uncertainty the pass rate is 55% at 20–30 mph and 48% at 50 mph, and what
+actually closes the gap is measuring the hull (`results/summary.md` §4b). Above
+~44 mph the rudder model is also past its cavitation ceiling.
 
 **A number to reconcile:** marks 0.25 mile apart put **0.5 mile of straight into
 a lap before any turning**, so a lap is **0.54–0.58 mile, not 0.5**. That means
@@ -382,13 +388,13 @@ Confirm with ASNE which figure is authoritative before it goes in a white paper.
 
 | | Mechanical | Electrical | Software / Autonomy |
 |---|---|---|---|
-| **Critical** | Driveline retention + collets (M1–M2) | ESC replacement + spec (E1–E2) | Rule 21 GPS kill (S2) |
-| | Alignment fixture (M3) | Raw-water pumps (E10) | Allocation architecture (S3) |
-| **High** | Rudder span upgrade (§1.2) | Sustained thermal test (E13) | SITL + Mission Planner (S1) |
-| | Stock position + tiller arm (M7–M8) | LV load re-budget (E7) | Gain schedule (S4) |
-| **Medium** | Stinger flood protection (M6) | Ripple monitoring (E3–E4) | Steering-fault mode (S6) |
+| **Critical** | Driveline retention + collets (M1–M2) | ESC replacement + spec (E1–E2) | Rule 21 GPS kill on SITL/boat (S2) |
+| | Alignment fixture (M3) | Raw-water pumps (E10) | On-water hull ID tests (S9–S14) |
+| **High** | New rudder blade, 45 mm × 5 in (§1.2) | Sustained thermal test (E13) | SITL + Mission Planner with the Lua script (S1) |
+| | Stock position + tiller arm (M7–M8) | LV load re-budget (E7) | Steering-fault mode (S6) |
+| **Medium** | Stinger flood protection (M6) | Ripple monitoring (E3–E4) | Soften the launch (spin-outs, summary §4b) |
 | | Yaw inertia measurement (M9) | Range/endurance test (E15/S15) | Waypoint mission (S5) |
-| **Enabling** | Stuffing tube jigs in ASA (§1.3) | Autopilot power quality (E9) | On-water ID tests (S9–S14) |
+| **Enabling** | Stuffing tube jigs in ASA (§1.3) | Autopilot power quality (E9) | Allocation (S3) and gain schedule (S4): done |
 
 **If only three things get done:** driveline retention, working raw-water
 cooling, and the Rule 21 kill. The first two are what ended the last campaign;

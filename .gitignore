@@ -5,3 +5,9 @@
 *.asv
 *.autosave
 slprj/
+
+# Python: per-run output from `python -m osprey run` is scratch; the tracked
+# results are results/python/, written by `python -m osprey report`.
+python/runs/
+__pycache__/
+.pytest_cache/

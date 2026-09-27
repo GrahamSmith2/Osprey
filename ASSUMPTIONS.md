@@ -3,8 +3,10 @@
 Every assumption that drives a number, with the reason it was made and the
 **expected error direction** — i.e. which way the real boat should differ.
 
-Ranked impact on the rudder-sizing conclusion is at the bottom, and is
-re-derived from the sensitivity study once the sizing sweep runs.
+Numbers are from the Python model (`python -m osprey report` →
+`results/python/report.md`) unless marked MATLAB. Every uncertain value lives in
+`UNCERTAINTY` in `python/osprey/params.py` as a range. Ranked impact is at the
+bottom, from the Monte Carlo rank correlations.
 
 ---
 
@@ -33,9 +35,15 @@ report's checkable outputs.
 It does not know about the tunnel, sponson interference, or the step. For a
 catamaran running two narrow pads it should be **roughly right on lift and
 optimistic on drag** (it misses tunnel spray drag and sponson interference).
-**Handling.** Anchored to the 13.4 m/s power data point (agrees to ~6%). If
-Appendix A.1 becomes available, replace the body of `hullSteadyState.m`; the
-returned struct is the only interface.
+**Handling.** Anchored to the 13.4 m/s power data point: 2324 W against ~2400 W
+logged, ~3%. (MATLAB reported 2534 W, ~6%, because it used the loaded mass for a
+no-payload run.) If Appendix A.1 becomes available, replace `hull_solve` in
+`python/osprey/hull.py`; the returned dict is the only interface.
+
+**Known defect.** Resistance does not go to zero at zero speed (~95 N at rest,
+~25 N from 0.6–5 m/s): the planing drag term `L·tan(trim)` is applied in
+displacement mode too. Kept for MATLAB parity. It makes a standing start
+**pessimistic**. See `python/PORTING.md`.
 
 ---
 
@@ -78,10 +86,14 @@ critical angle; the resulting cavity is self-sustaining, so recovery is
 hysteretic.
 **Error direction.** Ventilation onset on a sharp-edged, unfaired blade like the
 C5000 is likely **earlier** than 10°, and the loss **deeper** than 50%.
-**Consequence already observed:** yaw moment at 13.4 m/s peaks at 10° (64.4 N·m)
-and *falls* to 38.7 N·m at 12°. Control authority is **non-monotonic in
-deflection** — commanding more rudder gives less turn. This is the mechanism
-that will produce integral windup and limit cycling in a naively tuned PID.
+**Consequence already observed:** for the 75 mm blade at 13.4 m/s the yaw moment
+peaks at 10° (64.4 N·m) and *falls* to 38.7 N·m at 12°. Control authority is
+**non-monotonic in deflection** — commanding more rudder gives less turn. This
+is the mechanism that will produce integral windup and limit cycling in a
+naively tuned PID, and why the autopilot clamps the rudder at onset.
+**Second consequence (servo):** ventilated lift keeps growing with angle, so
+with full travel the hinge moment peaks near **26°**, not at onset. The MATLAB
+servo sizing read one point, 35° ventilated, and under-read the peak.
 
 ---
 
@@ -91,10 +103,11 @@ cavitation number computed and reported alongside.
 **Why.** Modelling supercavitating flow requires a different section and a
 different formulation entirely.
 **Error direction.** Above σ ≈ 0.5 the model **over-predicts** rudder lift,
-badly. σ < 0.5 above **19.8 m/s (44 mph)**; σ = 0.154 at the 35.8 m/s design
-speed.
+badly. σ < 0.5 above **19.9 m/s (44 mph)**; σ = 0.93 at 50 mph and 0.154 at the
+35.8 m/s design speed.
 **Handling.** Hard-flagged in results. **Sizing conclusions above ~20 m/s are
-not supported by this model.**
+not supported by this model — and the 50 mph race cruise is above it.** Every
+50 mph rudder number is an extrapolation, optimistic on authority.
 
 ---
 
@@ -108,12 +121,14 @@ makes the cross-track error in crosswind look **better** than reality.
 
 ---
 
-### A8 — Prop thrust from a generic linear KT(J) fit
-**Assumption.** `KT = 0.14 − 0.16·J`, first-order spool-up lag 0.10–0.30 s.
+### A8 — Prop thrust ceiling from a linear KT(J), calibrated to the log
+**Assumption.** `KT = KT0·(1 − J/J0)`. KT0 is solved so that, at the logged
+13.4 m/s, no payload and the logged 23 150 rpm, thrust equals hull resistance.
+`J0 = 1.35` is assumed. First-order spool-up lag 0.10–0.30 s.
 **Why.** Graupner K-series 76 mm open-water data not in hand.
-**Error direction.** Affects the **differential-thrust authority curve and the
-rudder/thrust crossover speed only**. It does not touch the rudder sizing band,
-which is set by rudder physics. Treat the crossover speed as ±30%.
+**Error direction.** Sets the thrust ceiling, top speed and differential-thrust
+authority. It does not touch rudder sizing. With the prop as logged the loaded
+boat tops out at **28.8 mph**; the race assumption is A18.
 
 ---
 
@@ -133,10 +148,12 @@ margin number.**
 near-zero nominal hinge moment.
 **Why.** Not specified for the C5000 blade.
 **Error direction.** **This is the assumption most likely to be wrong and most
-consequential for the servo spec.** If the stock is at the leading edge the
-lever becomes 0.25c and hinge moment rises from ~0 to 4.75 N·m (48.5 kg·cm) at
-35.8 m/s / 15°. If the stock sits *aft* of the CoP the blade is overbalanced and
-will slam to the stop — a stability problem, not just a torque problem.
+consequential for the servo spec.** For the new 45 mm × 5 in blade at 50 mph,
+worst case from straight running (clamped at 10° / full travel): stock at the
+leading edge **103 / 132 kg·cm** against a 74 kg·cm stall; stock at 25% chord
+with the CoP 0.10c off nominal **41 / 53**; exactly balanced ~0. If the stock
+sits *aft* of the CoP the blade is overbalanced and will slam to the stop — a
+stability problem, not just a torque problem.
 **Handling.** CoP swept 0.15–0.35c against a fixed stock; the sizing analysis
 reports both the balanced and leading-edge-stock cases. **Measure the stock
 position.**
@@ -166,26 +183,30 @@ survives that sweep.
 The prompt anticipated a small Munk moment for a planing hull. The model says
 otherwise, and this is now a recorded result rather than an assumption:
 
-At u = 13.4 m/s and 5° sideslip, against 64.4 N·m of rudder moment at
-ventilation onset:
+At 5° sideslip, against full useful rudder (10°, ventilation onset). The ratio
+does not depend on speed: both moments go as U².
 
-| Added-mass case | X_udot | Y_vdot | N_munk | vs rudder |
+| Added-mass case | X_udot/m | Y_vdot/m | old 75 mm blade (MATLAB) | new 45 mm × 5 in blade |
 |---|---|---|---|---|
-| Xudot hi / Yvdot lo | −6.63 | −2.21 | **−69.4 N·m** | 108% |
-| nominal | −2.21 | −6.63 | **+69.4 N·m** | 108% |
-| Xudot lo / Yvdot hi | −0.88 | −17.68 | **+263.9 N·m** | 409% |
+| surge high / sway low | 0.15 | 0.05 | −108% | **−40%** |
+| nominal | 0.05 | 0.15 | +108% | **+40%** |
+| surge low / sway high | 0.02 | 0.40 | +409% | **+150%** |
 
-Two consequences:
-1. The Munk moment **equals or exceeds full useful rudder authority** across
-   most of the declared range.
+Consequences:
+1. The new blade cuts the ratio by 2.7× (its authority), but in the high-sway
+   corner the Munk moment still **exceeds full useful rudder**.
 2. **Its SIGN is not determined** by the current data — it flips depending on
    whether surge or sway added mass dominates. A destabilising Munk moment
-   makes the boat directionally divergent in sideslip; a stabilising one does
-   the opposite.
+   makes the boat directionally divergent in sideslip.
+3. **At 50 mph this is what loses boats.** In the Monte Carlo, replayed lost
+   draws show the rudder hard over at the 10° clamp while the boat turns
+   steadily the *other* way (`results/summary.md` §4b). Hull damping is linear
+   in speed while the Munk and rudder moments go as U², so the hull's share of
+   the yaw balance shrinks as speed rises.
 
-In the settled 8° turn at 8 m/s the yaw balance is essentially *rudder against
-Munk*, with hull damping contributing under 3% of the budget. That is a
-qualitatively different plant from the one the control design was expected to
+In a settled open-loop 10° turn the Munk moment is 0.6× the rudder moment at
+10–20 mph and 1.6× above 30 mph, where sideslip grows from 3.4° to 5.3°. That is
+a qualitatively different plant from the one the control design was expected to
 target.
 
 **This is the highest-value measurement to collapse.** A single towing-tank or
@@ -195,9 +216,10 @@ the sign.
 ---
 
 ### A13 — Speed sag invalidates mid-manoeuvre linearisation (finding)
-Open-loop full-rudder (35°) turns from steady state lose **13.7% to 33.8%** of
-forward speed, exceeding the 15% validity threshold at four of five tested
-entry speeds. Since the gain schedule schedules *on measured u*, the controller
+Open-loop turns at the useful limit (10°) from straight running, thrust held at
+trim, lose **21% to 35%** of forward speed between 10 and 50 mph, past the 15%
+validity threshold at every speed tested. (MATLAB, 35° turns, old blade:
+14–34%.) Since the gain schedule schedules *on measured u*, the controller
 is chasing a moving operating point throughout any hard turn.
 
 **Consequence for the design:** the gain schedule must be validated against the
@@ -214,9 +236,12 @@ transfer, so it alone sets the sponson-unloading limit
 `a_y_crit = g·y_hull/h_cg = 2.49 g`.
 **Error direction.** If the real CG sits higher (batteries on deck rather than
 in the sponsons), `a_y_crit` falls proportionally and the envelope tightens.
-**Handling.** Currently non-binding by a wide margin — the boat reaches only
-15–36% of `r_max_safe` at full rudder — so `h_cg` would have to be wrong by
-roughly 3× before it changed any conclusion.
+**Handling.** At 8 m/s this was non-binding by ~3×. **At 50 mph it is nearly
+binding:** the autopilot pulls a peak **1.35 g** in the roundings, 54% of the
+2.49 g unloading limit and 90% of the 1.50 g quasi-static safe limit (safety
+factor 0.6). The autopilot's 0.6 rad/s yaw-rate cap is what keeps it there; an
+open-loop 10° turn at 50 mph reaches 2.45 g. A CG 20% higher than assumed makes
+the race roundings exceed the safe limit. **Measure `h_cg`.**
 
 ---
 
@@ -226,7 +251,7 @@ roughly 3× before it changed any conclusion.
 a judgement call from planing-craft practice, not a derived quantity.
 **Error direction.** Unknown. It binds only below ~7 m/s, where the roll limit
 is looser.
-**Handling.** Flagged. It is the weakest number in `rollEnvelope.m`.
+**Handling.** Flagged. It is the weakest number in `studies.roll_envelope`.
 
 ---
 
@@ -242,63 +267,106 @@ rate loop closing on the IMU gyro (0.004 rad/s noise — **463× cleaner**).
 This is the concrete justification for the cascade architecture over a
 single-loop heading PID.
 
-Separately, the textbook integral corner at `wc/10` proved too fast: it produced
-a lightly damped ~20 s mode (30° step overshooting to 41° and ringing for half a
-minute), because during the step the **Munk moment reaches 135% of the rudder
-moment** and acts as negative damping. Backing the corner off to `wc/30` fixed
-it. The plant is not the clean Nomoto model the gains were derived from.
+Separately (found in the MATLAB version, carried into the Lua script), the
+textbook integral corner at `wc/10` proved too fast: it produced a lightly
+damped ~20 s mode (30° step overshooting to 41° and ringing for half a minute),
+because during the step the **Munk moment reaches 135% of the rudder moment**
+and acts as negative damping. Backing the corner off to `wc/30`
+(`KI_PSI = 0.033·KP_PSI²` in `oval_autopilot.lua`) fixed it. The plant is not
+the clean Nomoto model the gains were derived from.
 
 ---
 
-### A17 — The gain schedule matters far less than expected, and the reason matters
-**Finding.** With the moment-domain cascade implemented here, the inner
-proportional gain `Kp_N` is **speed-invariant** (verified: 80.28 N·m/(rad/s) at
-every speed). All the `u²` speed dependence is absorbed by the allocator's
-`N → δ` conversion, which uses measured speed.
+### A17 — The gain schedule lives in the unit conversion, not a gain table
+**Finding.** With the moment-domain cascade in `oval_autopilot.lua`, the inner
+proportional gain `Kp_N = wc·T′·L²·KN/K′` is **speed-invariant**
+(76.6 N·m/(rad/s) for the new blade). All the `u²` speed dependence is in the
+conversion from yaw moment to actuator command, which uses measured speed:
+`δ = N / (KN·U²)` for the rudder, `Δthrottle = N / (2·T_max(U)·y_p)` for the
+motors.
 
-Consequences, in order of importance:
+Consequences:
 
-1. **The `1/U` law in the brief is right for a single-loop heading→rudder PID**
-   (`Kp = wc/K ∝ 1/U`, `Td = T ∝ 1/U`, both verified). It is **not** the law for
-   this cascade, where the angle-domain gain goes as `1/U²` and the
-   moment-domain gain is flat. Both results are correct; they belong to
-   different loop structures.
-2. **The allocator's `N → δ` conversion IS gain scheduling**, just relocated out
-   of the gain table. An autopilot that commands a steering angle directly
-   (ArduPilot Rover) does not do this, so for that target the `1/U²`
-   angle-domain schedule is genuinely required.
-3. **The expected "fixed gains fail at one end" result is muted**, and honestly
-   so. Small-signal 5° step, fixed gains frozen at 15 mph:
-
-   | U | scheduled overshoot | fixed overshoot |
-   |---|---|---|
-   | 2.2 m/s (5 mph) | 10.4% | **34.6%** |
-   | 6.7 m/s (15 mph) | 10.9% | 10.9% |
-   | 13.4 m/s (30 mph) | 11.7% | 11.0% |
-
-   Fixed gains degrade 3× at the **low** end and are fine at the high end — and
-   they never go unstable. The reason is the differential-thrust allocator:
-   its authority has **no `u²` dependence**, so it props up the low-speed end
-   that would otherwise be gain-starved. A rudder-only boat would fail here.
+1. **The `1/U` law is right for a single-loop heading→rudder PID**
+   (`Kp = wc/K ∝ 1/U`). It is **not** the law for this cascade, where the
+   angle-domain gain goes as `1/U²` and the moment-domain gain is flat. Both
+   are correct; they belong to different loop structures.
+2. **The same gain drives either actuator**, so the 10 mph handover between
+   motors and rudder needs no retuning and the integrator carries across.
+3. **The script does its own scheduling**, so ArduPilot Rover's lack of native
+   gain scheduling does not matter as long as the script drives the outputs.
 4. **Large steps hide all of this.** A 30° step saturates the rudder at the
    ventilation clamp, so the response is authority-limited and gain barely
    matters. Any gain comparison must be run small-signal or it measures nothing.
 
+(MATLAB, old blade, blended allocator: fixed gains frozen at 15 mph degraded 3×
+at 5 mph — 34.6% vs 10.4% overshoot — and were fine at 30 mph. Not re-run for
+the Lua script, which always schedules.)
+
 ---
 
-## Assumptions ranked by impact on the rudder-sizing conclusion
+### A18 — Propulsion scaled to a 55 mph top speed (race runs only)
+**Assumption.** For race runs, `build_params(top_speed=55 mph)` scales KT0 so
+the loaded boat's thrust ceiling equals its resistance at 55 mph. That gives
+~14% thrust margin at the 50 mph cruise.
+**Why.** The team plans to race at 50 mph; the prop as logged tops out at
+28.8 mph loaded. 50 mph needs ~336 N and ~7.5 kW into the water, against the
+~2 kW per motor logged. This stands in for the ESC/prop/power upgrade.
+**Error direction.** The whole thrust curve scales, including static thrust, so
+**launch acceleration is optimistic** (0 → 49 mph in ~4 s). Top-end behaviour
+is set by the target, so it is right by construction if the upgrade delivers.
 
-*Placeholder ordering, from the sensitivity runs completed so far. To be
-regenerated from the Monte Carlo sensitivity study once the sizing sweep runs.*
+---
 
-1. **A5** ventilation onset and depth — bounds the *maximum useful deflection*,
-   which is what actually sets the required area (not stall).
-2. **A1** yaw inertia — sets the turn-rate response and therefore the minimum
-   area from the low-speed turn-rate spec.
-3. **A6** cavitation ceiling — voids the whole conclusion above 20 m/s.
-4. **A10 / A9** stock position and tiller arm — set the servo torque spec, but
-   not the area band.
-5. **A4** free-surface image factor — conservative in the safe direction.
-6. **A2 / A3** hull method and trim — set the regime-transition speed, second
-   order for area.
-7. **A8** prop KT — affects the allocator crossover only.
+### A19 — Standing start
+**Assumption.** Every race starts from rest on the start line, heading up the
+first straight. The MATLAB Monte Carlo and fault runs started at cruise speed.
+**Why.** PEP is a standing start [TEAM].
+**Error direction.** Launch is where differential-thrust steering (below
+10 mph) is used at all; it lasts ~0.8 s here because of A18. With a realistic
+launch it lasts longer. A18 and the zero-speed resistance defect (A2) pull in
+opposite directions.
+
+---
+
+### A20 — Steering split at 10 mph, rudder clamped at 10° (team decision)
+**Decision, not assumption, recorded for traceability.** The autopilot uses
+differential thrust only below 10 mph and the rudder only at and above, handing
+back to the motors below 9 mph. The rudder is clamped at ventilation onset,
+nominally 10°.
+**Consequence.** Above 10 mph there is **no second steering actuator**: a
+rudder jam there is not survivable without a fault mode that slows below
+10 mph. Below ~22 mph the motors could out-muscle a rudder jammed at 10°.
+
+---
+
+### A21 — Yaw-rate command capped at 0.6 rad/s
+**Assumption.** `OSP_RATE_MAX = 0.6 rad/s` in the Lua script.
+**Why.** Inherited default; it sits just inside the quasi-static roll limit at
+50 mph (0.656 rad/s, A14).
+**Error direction.** At 50 mph it sets the tightest turn to ~37 m radius, so on
+a 25 m rounding the boat swings up to ~34 m wide. Raising it tightens the
+rounding and spends the remaining roll margin; lowering it widens the rounding.
+
+---
+
+## Assumptions ranked by impact
+
+From the 50 mph Monte Carlo (`results/summary.md` §4b): rank correlations with
+the worst distance off the line, and the parameters of the draws that lost the
+boat. Chosen rudder, 60 draws.
+
+1. **A11** hull derivatives — `Nv` (ρ = −0.55) and `Nr` (+0.31) are the
+   strongest correlates; lost draws have low sway damping `Yv` (median 0.49×)
+   and the launch spin-outs all have strong `Nv` (1.6–4.9×).
+2. **A12** sway added mass `Y_v̇` (+0.26) — the Munk moment's size and sign.
+3. **A10 / A9** stock position and tiller arm — decide whether the servo works
+   at all with the new blade. Not in the Monte Carlo's failure count, because
+   the model has no servo stall; they are first for the hardware.
+4. **A14** CG height — the 50 mph roundings use 90% of the roll margin.
+5. **A1** yaw inertia (−0.24; lost draws 1.17×).
+6. **A5** ventilation onset (+0.21) — bounds the useful rudder.
+7. **A6** cavitation ceiling — the race is past it; optimistic on authority.
+8. **A18** propulsion scaling — makes the launch harsher than a real one.
+9. **A4** free-surface image factor — conservative in the safe direction.
+10. **A2 / A3** hull method and trim — set the regime-transition speed.

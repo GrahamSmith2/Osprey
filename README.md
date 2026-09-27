@@ -2,20 +2,38 @@
 
 <https://github.com/GrahamSmith2/Osprey>
 
-MATLAB simulation supporting rudder sizing, servo specification, and heading /
-cross-track controller design for **Osprey**, a 7 ft twin-inboard electric
-planing catamaran USV intended to run a 2-mile autonomous course.
+Python simulation supporting rudder sizing, servo specification, and the
+autopilot for **Osprey**, a 7 ft twin-motor electric planing catamaran USV that
+runs a 2-mile autonomous course at the ASNE/ONR PEP Autonomy division. The
+autopilot is a **Lua script** written against ArduPilot's scripting API, flown
+here against the simulated boat.
 
 **Prior work.** The vessel was designed and built by **Aidan Astudillo and Sean
 Lee** (Princeton MAE senior thesis, April 2026). Their thesis is included at
 [`docs/Astudillo_Lee_2026_Osprey_thesis.pdf`](docs/Astudillo_Lee_2026_Osprey_thesis.pdf)
 — © the authors, all rights reserved, reproduced with attribution for project
 continuity. It is the authoritative source for the as-built hardware; everything
-in `model/`, `control/` and `results/` is separate work built on top of it, and
+in `python/` and `results/` is separate work built on top of it, and
 `docs/WORK_REMAINING.md` tags which is which.
 
-Plain MATLAB. No Simulink, no OOP, no required toolboxes. Entry point:
-`run_all.m`.
+```bash
+cd python
+```
+
+```bash
+pip install -r requirements.txt
+```
+
+```bash
+python -m osprey run controllers/oval_autopilot.lua
+```
+
+```bash
+python -m osprey report
+```
+
+`python/README.md` has every command and option; `python/LUA_API.md` is the
+scripting reference.
 
 ---
 
@@ -32,25 +50,27 @@ ram-air tunnel, which is not the hull form those regressions describe either.
 
 **Any hull derivative in this repo taken from those correlations is a
 placeholder with order-of-magnitude uncertainty, not an estimate.** They are
-swept ±5× in `params/uncertainty.m` for exactly this reason.
+swept ±5× in `UNCERTAINTY` in `python/osprey/params.py` for exactly this reason.
 
 ### What this simulation therefore cannot do
 
-It **cannot tell you what your gains should be.** Any specific Kp/Ki/Kd it
-prints is conditional on hull derivatives that are unknown to within 5×.
+It **cannot tell you what your gains should be.** Any specific gain it prints is
+conditional on hull derivatives that are unknown to within 5×. It is also
+**3-DOF** (surge, sway, yaw): it cannot see roll, hooking or blow-over, and a
+quasi-static check stands in for them.
 
 ### What it can do, and is built to do
 
-1. **A rudder area that works across the whole plausible parameter space** —
-   sized from both ends (minimum by turn-rate spec at the lowest autonomous
-   speed, maximum by drag, hinge moment, ventilation onset, and the blow-over
-   envelope at top speed). A feasible band, not a single number.
-2. **A servo specification with margin**, computed from a correct hinge-moment
+1. **A rudder that works across the whole plausible parameter space**, sized on
+   span rather than area, with drag, hinge moment and ventilation as limits.
+2. **A servo specification with margin**, from a correct hinge-moment
    formulation rather than force × horn radius.
-3. **The structure of the gain schedule and its scaling law** — that
-   `Kp ∝ 1/U` and `Td ∝ 1/U` follows from Nomoto `K ∝ U`, `T ∝ 1/U`, and that
-   result is robust even when `K'` and `T'` themselves are not known.
-4. **Which experiment to run** to collapse the remaining uncertainty.
+3. **The structure of the gain schedule and its scaling law**: Nomoto `K ∝ U`,
+   `T ∝ 1/U`, so an angle-domain rate gain goes as `1/U²` and a moment-domain
+   one is speed-invariant. That survives not knowing `K′` and `T′`.
+4. **A test bench for the real autopilot script**, including faults, GPS loss
+   and the PEP Rule 21 kill.
+5. **Which experiment to run** to collapse the remaining uncertainty.
 
 Every deliverable is designed to survive being wrong by 5× on the hull
 derivatives. If a conclusion in `results/summary.md` does not survive that, it
@@ -66,56 +86,71 @@ The rudder cavitation number is
 sigma = (p_atm + rho*g*h - p_v) / (0.5*rho*U^2)
 ```
 
-For this blade at mid-span depth, **sigma drops below 0.5 at U ≈ 19.8 m/s
+For this blade at mid-span depth, **sigma drops below 0.5 at U ≈ 19.9 m/s
 (44 mph)** and reaches **0.154 at the 35.8 m/s design speed**.
 
-**The attached-flow lift model in `model/rudderForces.m` is not valid above
-about 20 m/s.** That is 55% of the design top speed. Results above it are
-printed but flagged. Sizing the rudder for 80 mph operation requires a
+**The attached-flow lift model in `python/osprey/rudder.py` is not valid above
+about 20 m/s.** The planned race cruise, 50 mph (22.4 m/s), is past it, so
+rudder forces in the race are extrapolated. Sizing a rudder for 80 mph needs a
 supercavitating or ventilated-wedge section, which is a different blade and a
-different model, not a bigger version of this one.
+different model.
+
+---
+
+## Race plan the simulation assumes
+
+| | | source |
+|---|---|---|
+| Rudder | 45 mm chord × 5 in submerged, same mount | team decision |
+| Cruise | 50 mph, from a standing start | team decision |
+| Steering | differential thrust only below 10 mph, rudder only above | team decision |
+| Course | two marks 0.25 mi apart, run as an oval, 2 miles | team, PEP |
+| Propulsion | thrust curve scaled so the loaded boat tops out at 55 mph | **assumed**: the prop as logged tops out at 28.8 mph |
 
 ---
 
 ## Validation status
 
-The model is anchored to the two independent numbers the design report supplies:
+The model is anchored to the two independent numbers the design report
+supplies (`python -m osprey report`, §1):
 
 | Check | Reported | Model | Status |
 |---|---|---|---|
 | Aero lift fraction at 35.8 m/s | 36% of weight | 36.0% | calibrated to this (not a check) |
-| Effective power at 13.4 m/s | ~2400 W (45 A × 44.4 V × 2, ~60% chain eff.) | 2534 W | **independent, ~6%** |
+| Effective power at 13.4 m/s, no payload | ~2400 W (45 A × 44.4 V × 2, ~60% chain eff.) | 2324 W | **independent, ~3%** |
 | Cavitation number at 35.8 m/s | ≈ 0.15 | 0.154 | **independent** |
 
 The 13.4 m/s power check is the meaningful one: nothing in the hull resistance
-model was fitted to it.
+model was fitted to it. (The MATLAB version reported 2534 W here because it used
+the loaded mass for a no-payload run; see `python/PORTING.md`.)
 
 ---
 
 ## Repository layout
 
 ```
-run_all.m              single entry point
-params/                every physical constant. Nothing is hardcoded downstream.
-  params_vessel.m      measured geometry and mass properties
-  params_env.m         fluid properties, disturbance defaults
-  params_rudder.m      baseline MHZ Mystic C5000 blade
-  params_actuators.m   servo, cable linkage, ESC/motor/prop
-  uncertainty.m        EVERY unknown, as a range. The most important file here.
-  sampleUncertainty.m  nominal / LHS / corner sampling, no toolbox
-  buildParams.m        assembles the one struct every model file reads
-model/
-  hullSteadyState.m    wetted area, lift split, resistance vs speed
-  rudderForces.m       lift, drag, ventilation, hinge moment, cavitation
-docs/
-results/               figures (PNG), summary.md, autopilot_params.txt
-tests/                 sanity checks that must pass before any result is trusted
-ASSUMPTIONS.md         every modelling assumption, its reason, and its expected
-                       error direction
+python/                 the model. Everything current lives here.
+  osprey/               physics, simulation, Lua bridge, studies, report
+  controllers/          Lua autopilot scripts
+  tests/                pytest: physics checks, MATLAB parity, Lua interface
+  README.md             commands and assumptions
+  LUA_API.md            the scripting API
+  PORTING.md            MATLAB -> Python map, bugs found, known defects
+results/
+  summary.md            findings with their caveats (the deliverable)
+  python/               report.md, figures and Monte Carlo data from `report`
+  *.png, *.mat          MATLAB-era outputs, kept for the record
+docs/                   handoff, work remaining, constraints, thesis
+reference-pack/         the pack for new leads
+ASSUMPTIONS.md          every modelling assumption, its reason, and its
+                        expected error direction
+model/ params/ analysis/ control/ sensors/ tests/ run_all.m
+                        the original MATLAB model: FROZEN, kept as the
+                        reference the Python parity tests check against
 ```
 
 ## Requirements
 
-MATLAB R2023b+. No toolboxes. Where a Control System Toolbox function would
-help (`margin`, `bode`), a plain-MATLAB fallback is used unless
-`license('test', ...)` passes.
+Python 3.11+, with numpy, lupa (Lua 5.4), matplotlib and pytest
+(`python/requirements.txt`). MATLAB is only needed to run the frozen reference
+model.

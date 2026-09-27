@@ -44,7 +44,8 @@ steered the boat is not stated either way.
 
 ## 2. What has been added since
 
-A manoeuvring simulation and control design now exist at
+A manoeuvring simulation (Python) and an autopilot (an ArduPilot Lua script
+that the simulation flies) now exist at
 [github.com/GrahamSmith2/Osprey](https://github.com/GrahamSmith2/Osprey). It is
 **not** a trajectory predictor — the hull coefficients are unknown to within ±5×
 and everything is built to survive that. Reference docs in the repo:
@@ -56,14 +57,16 @@ Four results that change what we should do:
 **The rudder should be sized on span, not area.** Authority is the product
 `A_r · CL_α`. Growing area at fixed span grows the chord, which collapses the
 aspect ratio and cancels most of the gain: **30× the area buys 32% more
-authority.** Growing the span instead buys **5.4× for a third of the area
-increase.** A naive "make the rudder bigger" would have wasted the effort.
+authority.** Growing the span instead buys **5.3× for a ninth of the area
+increase.** The team has chosen **45 mm × 5 in: 2.7× the old blade's
+authority**, most of it from the extra depth.
 
-**The course does not need a bigger rudder — but the uncertainty does.** The
-oval needs under 2° of steady rudder at every speed. However, across the
-plausible parameter range the current blade spends **41% of a lap pinned at its
-useful limit**, against 0% for a 150 mm span blade. The argument for a new
-rudder is margin, not turning.
+**At 50 mph, the hull unknowns decide whether the boat can turn.** The nominal
+boat runs the 50 mph race cleanly with either blade. Across the plausible range
+of hull coefficients, **63% of boats with the old blade fail — spin out at the
+launch, cannot make a mark, or turn against the rudder — against 38% with the
+new one.** Dropping to 20–40 mph only brings that to ~29%. What closes it is
+measuring the hull, not slowing down or retuning.
 
 **The powertrain is correctly sized. The boat just is not using it.** Hull
 resistance implies ~10 kW effective at 80 mph, so ~16 kW electrical at the 63%
@@ -76,8 +79,9 @@ available. That is a propeller and loading problem, not an installed-power
 problem, and no amount of new electronics fixes it.
 
 **Rule 21 requires a kill on GPS loss.** The craft must stop when navigation
-data is missing or corrupted, and judges watch it demonstrated. Whether the
-existing autonomous system does this is unknown.
+data is missing or corrupted, and judges watch it demonstrated. Our Lua
+autopilot disarms 500 ms after the fix is lost, in simulation. Whether the
+existing autonomous system on the boat does this is unknown.
 
 ---
 
@@ -85,17 +89,16 @@ existing autonomous system does this is unknown.
 
 | # | Decision | Blocked on |
 |---|---|---|
-| D1 | **What speed are we actually building for?** | Sets the ESC, wiring, battery and cooling load. Everything electrical waits on this. The thesis already floats swapping to **LMT 7065** motors, which would need a new front support plate — so there is a defined upgrade path if we want one. |
+| D1 | **What speed are we actually building for?** | **Decided: 50 mph cruise** [TEAM, Sep 2026]. Sets the ESC, wiring, battery and cooling load: ~7.5 kW into the water, ~135 A per motor at the logged chain efficiency. The thesis already floats **LMT 7065** motors, which would need a new front support plate. |
 | D2 | Driveline retention scheme | Nothing. Someone needs to own it. |
-| D3 | Rudder span and stock position | One measurement (§4, Q3) |
-| D4 | Steering allocation architecture | ArduPilot drives a rudder **or** twin motors, not both. Needs a decision before any tuning. |
+| D3 | Rudder size and stock position | **Size decided: 45 mm chord × 5 in submerged.** Stock position is one measurement (§4, A2) and decides whether the servo is adequate. |
+| D4 | Steering allocation architecture | **Decided: motors steer below 10 mph, rudder above.** Implemented in the Lua autopilot, which drives the outputs itself. |
 | D5 | Are we entering PEP27 in Autonomy again? | Determines whether autonomy is the priority or a stretch goal |
 
-**D1 is the one to force.** Nearly every electrical question downstream is
-undefined until it is answered, and it is a genuine choice rather than a
-constraint: a boat that reliably finishes at 20 mph scores better than a fast
-one that does not, because completing the distance is worth 40 points against 20
-for winning.
+**The open question behind D1:** a boat that reliably finishes scores better
+than a fast one that does not — completing the distance is worth 40 points
+against 20 for winning — and the simulation says 50 mph is where the hull
+unknowns matter most (§2). Confirm the choice once the on-water hull data is in.
 
 ---
 
@@ -108,7 +111,7 @@ for winning.
 | # | Question | Why |
 |---|---|---|
 | A1 | **What exactly wore on the collet, and do you still have the failed part?** | The redesign depends on the wear mode. A photo or the part itself is worth more than the write-up. |
-| A2 | **Where does the rudder stock sit on the blade, as a fraction of chord?** | Decides whether the existing servo is adequate. The answer swings the requirement from ~0 to 45 kg·cm. We were going to measure it; you may just know. |
+| A2 | **Where does the rudder stock sit on the blade, as a fraction of chord?** | Decides whether the existing servo is adequate. For the new 45 mm blade at 50 mph the answer swings the requirement from ~0 to ~103 kg·cm (stall is 74). We were going to measure it; you may just know. |
 | A3 | **What is the rudder tiller arm radius?** | Scales servo torque linearly. Never recorded. |
 | A4 | **Why do you think the raw-water side never flowed?** Air lock, pickup geometry, insufficient dynamic pressure, blockage? | Determines whether we add pumps or redesign the pickups. |
 | A5 | **What is your read on 45 A when you expected 100?** Prop pitch, diameter, slip, cavitation? | This is the single biggest open question on the boat. The ESC is rated 180 A and the boat used 25% of it, so speed is being left on the table somewhere between motor and water. |
